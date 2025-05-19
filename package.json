@@ -11,7 +11,18 @@
     "postinstall": "powershell -Command \"New-Item -ItemType Directory -Path .\\node_modules\\expo-sqlite\\web\\wa-sqlite -Force; Copy-Item .\\public\\wa-sqlite.wasm .\\node_modules\\expo-sqlite\\web\\wa-sqlite\\wa-sqlite.wasm -Force\""
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "testMatch": [
+      "**/__tests__/**/*.js?(x)",
+      "**/?(*.)+(spec|test).js?(x)"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!(mysql2)/)"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/components/__tests__/mysqlClient-test.js",
+      "<rootDir>/components/__tests__/mysqlClient-test.ts"
+    ]
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
@@ -26,9 +37,11 @@
     "expo-status-bar": "~2.2.3",
     "expo-system-ui": "~5.0.7",
     "expo-web-browser": "~14.1.6",
+    "mysql2": "^3.14.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.2",
+    "react-native-paper": "^5.14.4",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.10.0",

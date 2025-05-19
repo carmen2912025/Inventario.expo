@@ -1,8 +1,8 @@
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
-import { useColorScheme } from '@/components/useColorScheme';
-import { initDBWithTestData } from '@/components/db';
+import { useColorScheme } from '../components/useColorScheme';
+import { Platform } from 'react-native';
 import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -33,7 +33,7 @@ export default function RootLayout() {
   useEffect(() => {
     async function prepare() {
       try {
-        if (loaded) {
+        if (loaded && Platform.OS !== 'web') {
           await initDBWithTestData();
         }
         setAppIsReady(true);

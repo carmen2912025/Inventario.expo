@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, FlatList, TextInput, Button, Alert, TouchableOpacity, View, Text } from 'react-native';
-import { initDB, getDb } from '../../components/db';
+import { StyleSheet, FlatList, TextInput, Alert, View, Text } from 'react-native';
+import { Button as PaperButton } from 'react-native-paper';
+import { query } from '../../components/mysqlClient';
 
 export default function ProvidersScreen() {
   const [proveedores, setProveedores] = useState([]);
@@ -8,70 +9,47 @@ export default function ProvidersScreen() {
   const [direccion, setDireccion] = useState('');
   const [telefono, setTelefono] = useState('');
   const [correo, setCorreo] = useState('');
-  let realDb = null;
+  const [dbAvailable, setDbAvailable] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      await initDB();
-      realDb = await getDb();
-      fetchProveedores();
-    })();
+    fetchProveedores();
   }, []);
 
   async function fetchProveedores() {
-    if (realDb && realDb.getAllAsync) {
-      const rows = await realDb.getAllAsync('SELECT * FROM proveedores WHERE is_active = 1');
+    try {
+      const rows = await query('SELECT * FROM proveedores WHERE is_active = 1');
       setProveedores(rows);
-    } else if (realDb && realDb.transaction) {
-      realDb.transaction((tx) => {
-        tx.executeSql(
-          'SELECT * FROM proveedores WHERE is_active = 1',
-          [],
-          (_, result) => setProveedores(result.rows._array),
-          (_, error) => { console.log(error); return false; }
-        );
-      });
-    }
+    } catch (e) { setDbAvailable(false); }
   }
 
   async function addProveedor() {
-    if (!nombre.trim()) {
-      Alert.alert('Nombre requerido');
+    if (!nombre.trim() || !direccion.trim() || !telefono.trim() || !correo.trim()) {
+      Alert.alert('Error', 'Todos los campos son obligatorios');
       return;
     }
-    if (realDb && realDb.runAsync) {
-      await realDb.runAsync('INSERT INTO proveedores (nombre, direccion, telefono, correo, is_active) VALUES (?, ?, ?, ?, 1)', [nombre, direccion, telefono, correo]);
+    try {
+      await query('INSERT INTO proveedores (nombre, direccion, telefono, correo, is_active) VALUES (?, ?, ?, ?, 1)', [nombre, direccion, telefono, correo]);
       setNombre(''); setDireccion(''); setTelefono(''); setCorreo('');
       fetchProveedores();
-    } else if (realDb && realDb.transaction) {
-      realDb.transaction((tx) => {
-        tx.executeSql(
-          'INSERT INTO proveedores (nombre, direccion, telefono, correo, is_active) VALUES (?, ?, ?, ?, 1)',
-          [nombre, direccion, telefono, correo],
-          () => {
-            setNombre(''); setDireccion(''); setTelefono(''); setCorreo('');
-            fetchProveedores();
-          },
-          (_, error) => { console.log(error); return false; }
-        );
-      });
-    }
+    } catch (e) { Alert.alert('Error', 'No se pudo agregar el proveedor'); }
   }
 
   async function deleteProveedor(id) {
-    if (realDb && realDb.runAsync) {
-      await realDb.runAsync('UPDATE proveedores SET is_active = 0 WHERE id = ?', [id]);
+    try {
+      await query('UPDATE proveedores SET is_active = 0 WHERE id = ?', [id]);
       fetchProveedores();
-    } else if (realDb && realDb.transaction) {
-      realDb.transaction((tx) => {
-        tx.executeSql(
-          'UPDATE proveedores SET is_active = 0 WHERE id = ?',
-          [id],
-          fetchProveedores,
-          (_, error) => { console.log(error); return false; }
-        );
-      });
-    }
+    } catch (e) { Alert.alert('Error', 'No se pudo eliminar el proveedor'); }
+  }
+
+  function handleDeleteProveedor(id) {
+    Alert.alert(
+      'Confirmar eliminación',
+      '¿Estás seguro de que deseas eliminar este proveedor?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => deleteProveedor(id) },
+      ]
+    );
   }
 
   const renderItem = ({ item }) => (
@@ -81,11 +59,20 @@ export default function ProvidersScreen() {
         <Text style={styles.itemDetail}>{item.direccion}</Text>
         <Text style={styles.itemDetail}>{item.telefono} {item.correo}</Text>
       </View>
-      <TouchableOpacity onPress={() => deleteProveedor(item.id)}>
-        <Text style={styles.deleteBtn}>Eliminar</Text>
-      </TouchableOpacity>
+      <PaperButton mode="text" onPress={() => handleDeleteProveedor(item.id)} labelStyle={styles.deleteBtn} compact>
+        Eliminar
+      </PaperButton>
     </View>
   );
+
+  if (!dbAvailable) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Proveedores</Text>
+        <Text style={{ color: 'red', marginTop: 20 }}>No se pudo conectar a la base de datos MySQL.</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -116,7 +103,9 @@ export default function ProvidersScreen() {
           value={correo}
           onChangeText={setCorreo}
         />
-        <Button title="Agregar proveedor" onPress={addProveedor} />
+        <PaperButton mode="contained" onPress={addProveedor} style={{ marginTop: 8 }}>
+          Agregar proveedor
+        </PaperButton>
       </View>
       <FlatList
         data={proveedores}

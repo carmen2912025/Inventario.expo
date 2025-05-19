@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, FlatList, TextInput, Button, Alert, TouchableOpacity, View, Text } from 'react-native';
+import { StyleSheet, FlatList, TextInput, Alert, View, Text } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { initDB, getDb } from '../../components/db';
-
-let realDb = null;
+import { Button as PaperButton } from 'react-native-paper';
+import { API_BASE_URL } from '../../constants/api';
 
 export default function ProductsScreen() {
   const [productos, setProductos] = useState([]);
@@ -19,84 +18,82 @@ export default function ProductsScreen() {
   const [dbAvailable, setDbAvailable] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      await initDB();
-      const db = await getDb();
-      if (!db) {
-        setDbAvailable(false);
-        return;
-      }
-      realDb = db;
-      fetchCategorias();
-      fetchMarcas();
-      fetchProductos();
-    })();
+    fetchCategorias();
+    fetchMarcas();
+    fetchProductos();
   }, []);
 
   async function fetchCategorias() {
-    if (realDb && realDb.transaction) {
-      realDb.transaction((tx) => {
-        tx.executeSql('SELECT * FROM categorias', [], (_, result) => setCategorias(result.rows._array));
-      });
-    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/categories`);
+      if (!res.ok) throw new Error('Error al obtener categorías');
+      const rows = await res.json();
+      setCategorias(rows);
+    } catch (e) { setDbAvailable(false); }
   }
   async function fetchMarcas() {
-    if (realDb && realDb.transaction) {
-      realDb.transaction((tx) => {
-        tx.executeSql('SELECT * FROM marcas', [], (_, result) => setMarcas(result.rows._array));
-      });
-    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/brands`);
+      if (!res.ok) throw new Error('Error al obtener marcas');
+      const rows = await res.json();
+      setMarcas(rows);
+    } catch (e) { setDbAvailable(false); }
   }
   async function fetchProductos() {
-    if (realDb && realDb.transaction) {
-      realDb.transaction((tx) => {
-        tx.executeSql(
-          `SELECT p.*, c.nombre as categoria_nombre, m.nombre as marca_nombre FROM productos p
-           LEFT JOIN categorias c ON p.categoria_id = c.id
-           LEFT JOIN marcas m ON p.marca_id = m.id
-           WHERE 1=1`,
-          [],
-          (_, result) => setProductos(result.rows._array),
-          (_, error) => { console.log(error); return false; }
-        );
-      });
-    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/products`);
+      if (!res.ok) throw new Error('Error al obtener productos');
+      const rows = await res.json();
+      setProductos(rows);
+    } catch (e) { setDbAvailable(false); }
   }
 
   async function addProducto() {
     if (!sku.trim() || !nombre.trim() || !precio.trim() || !categoriaId || !marcaId) {
-      Alert.alert('SKU, nombre, precio, categoría y marca son requeridos');
+      Alert.alert('Error', 'SKU, nombre, precio, categoría y marca son requeridos');
       return;
     }
-    if (realDb && realDb.transaction) {
-      realDb.transaction((tx) => {
-        tx.executeSql(
-          'INSERT INTO productos (sku, nombre, descripcion, precio, cantidad, categoria_id, marca_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [sku, nombre, descripcion, parseFloat(precio), parseInt(cantidad) || 0, categoriaId, marcaId],
-          () => {
-            setSku(''); setNombre(''); setDescripcion(''); setPrecio(''); setCantidad(''); setCategoriaId(''); setMarcaId('');
-            fetchProductos();
-          },
-          (_, error) => { console.log(error); return false; }
-        );
-      });
+    if (isNaN(parseFloat(precio)) || (cantidad && isNaN(parseInt(cantidad)))) {
+      Alert.alert('Error', 'Precio y cantidad deben ser números válidos');
+      return;
     }
+    try {
+      const res = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sku,
+          nombre,
+          descripcion,
+          precio: parseFloat(precio),
+          cantidad: parseInt(cantidad) || 0,
+          categoria_id: categoriaId,
+          marca_id: marcaId,
+        })
+      });
+      if (!res.ok) throw new Error('No se pudo agregar el producto');
+      setSku(''); setNombre(''); setDescripcion(''); setPrecio(''); setCantidad(''); setCategoriaId(''); setMarcaId('');
+      fetchProductos();
+    } catch (e) { Alert.alert('Error', 'No se pudo agregar el producto'); }
   }
 
   async function deleteProducto(id) {
-    if (realDb && realDb.runAsync) {
-      await realDb.runAsync('UPDATE productos SET is_active = 0 WHERE id = ?', [id]);
+    try {
+      const res = await fetch(`${API_BASE_URL}/products/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('No se pudo eliminar el producto');
       fetchProductos();
-    } else if (realDb && realDb.transaction) {
-      realDb.transaction((tx) => {
-        tx.executeSql(
-          'UPDATE productos SET is_active = 0 WHERE id = ?',
-          [id],
-          fetchProductos,
-          (_, error) => { console.log(error); return false; }
-        );
-      });
-    }
+    } catch (e) { Alert.alert('Error', 'No se pudo eliminar el producto'); }
+  }
+
+  function handleDeleteProducto(id) {
+    Alert.alert(
+      'Confirmar eliminación',
+      '¿Estás seguro de que deseas eliminar este producto?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => deleteProducto(id) },
+      ]
+    );
   }
 
   const renderItem = ({ item }) => (
@@ -107,9 +104,9 @@ export default function ProductsScreen() {
         <Text style={styles.itemDetail}>Categoría: {item.categoria_nombre || '-'} | Marca: {item.marca_nombre || '-'}</Text>
         <Text style={styles.itemDetail}>Precio: ${item.precio} | Stock: {item.cantidad}</Text>
       </View>
-      <TouchableOpacity onPress={() => deleteProducto(item.id)}>
-        <Text style={styles.deleteBtn}>Eliminar</Text>
-      </TouchableOpacity>
+      <PaperButton mode="text" onPress={() => handleDeleteProducto(item.id)} labelStyle={styles.deleteBtn} compact>
+        Eliminar
+      </PaperButton>
     </View>
   );
 
@@ -117,7 +114,7 @@ export default function ProductsScreen() {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Productos</Text>
-        <Text style={{ color: 'red', marginTop: 20 }}>La base de datos local no está disponible en esta plataforma.</Text>
+        <Text style={{ color: 'red', marginTop: 20 }}>No se pudo conectar a la base de datos MySQL.</Text>
       </View>
     );
   }
@@ -175,7 +172,9 @@ export default function ProductsScreen() {
           <Picker.Item label="Selecciona marca" value="" />
           {marcas.map(m => <Picker.Item key={m.id} label={m.nombre} value={m.id} />)}
         </Picker>
-        <Button title="Agregar producto" onPress={addProducto} />
+        <PaperButton mode="contained" onPress={addProducto} style={{ marginTop: 8 }}>
+          Agregar producto
+        </PaperButton>
       </View>
       <FlatList
         data={productos}

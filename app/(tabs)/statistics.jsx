@@ -1,67 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import { initDB, getDb } from '../../components/db';
-
-let realDb = null;
+import { query } from '../../components/mysqlClient';
 
 export default function StatisticsScreen() {
   const [stats, setStats] = useState(null);
   const [dbAvailable, setDbAvailable] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      await initDB();
-      const db = await getDb();
-      if (!db) {
-        setDbAvailable(false);
-        return;
-      }
-      realDb = db;
-      fetchStats();
-    })();
+    fetchStats();
   }, []);
 
   async function fetchStats() {
-    let productos = 0, proveedores = 0, stock = 0, valor = 0;
-    if (realDb && realDb.getAllAsync) {
-      const prodRows = await realDb.getAllAsync('SELECT COUNT(*) as total, SUM(cantidad) as stock, SUM(precio * cantidad) as valor FROM productos WHERE is_active = 1');
-      const provRows = await realDb.getAllAsync('SELECT COUNT(*) as total FROM proveedores WHERE is_active = 1');
-      productos = prodRows[0]?.total || 0;
-      stock = prodRows[0]?.stock || 0;
-      valor = prodRows[0]?.valor || 0;
-      proveedores = provRows[0]?.total || 0;
-    } else if (realDb && realDb.transaction) {
-      realDb.transaction((tx) => {
-        tx.executeSql(
-          'SELECT COUNT(*) as total, SUM(cantidad) as stock, SUM(precio * cantidad) as valor FROM productos WHERE is_active = 1',
-          [],
-          (_, result) => {
-            productos = result.rows._array[0]?.total || 0;
-            stock = result.rows._array[0]?.stock || 0;
-            valor = result.rows._array[0]?.valor || 0;
-            realDb.transaction((tx2) => {
-              tx2.executeSql(
-                'SELECT COUNT(*) as total FROM proveedores WHERE is_active = 1',
-                [],
-                (_2, result2) => {
-                  proveedores = result2.rows._array[0]?.total || 0;
-                  setStats({ productos, proveedores, stock, valor });
-                }
-              );
-            });
-          }
-        );
+    try {
+      const prodRows = await query('SELECT COUNT(*) as total, SUM(cantidad) as stock, SUM(precio * cantidad) as valor FROM productos WHERE is_active = 1');
+      const provRows = await query('SELECT COUNT(*) as total FROM proveedores WHERE is_active = 1');
+      setStats({
+        productos: prodRows[0]?.total || 0,
+        stock: prodRows[0]?.stock || 0,
+        valor: prodRows[0]?.valor || 0,
+        proveedores: provRows[0]?.total || 0,
       });
-      return;
+    } catch (e) {
+      setDbAvailable(false);
     }
-    setStats({ productos, proveedores, stock, valor });
   }
 
   if (!dbAvailable) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Estadísticas</Text>
-        <Text style={{ color: 'red', marginTop: 20 }}>La base de datos local no está disponible en esta plataforma.</Text>
+        <Text style={{ color: 'red', marginTop: 20 }}>No se pudo conectar a la base de datos MySQL.</Text>
       </View>
     );
   }
