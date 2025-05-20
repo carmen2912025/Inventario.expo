@@ -15,7 +15,7 @@ export {
 } from 'expo-router';
 
 export const unstable_settings = {
-  initialRouteName: '(tabs)',
+  // initialRouteName: '(tabs)', // Eliminado porque (tabs) ya no se usa
 };
 
 SplashScreen.preventAutoHideAsync();
