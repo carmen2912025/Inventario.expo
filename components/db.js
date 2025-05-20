@@ -64,10 +64,6 @@ export async function initDB() {
       nombre TEXT NOT NULL UNIQUE,
       descripcion TEXT
     );`);
-    tx.executeSql(`CREATE TABLE IF NOT EXISTS marcas (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nombre TEXT NOT NULL UNIQUE
-    );`);
     tx.executeSql(`CREATE TABLE IF NOT EXISTS ubicaciones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nombre TEXT NOT NULL UNIQUE,
@@ -88,28 +84,19 @@ export async function initDB() {
       nombre TEXT NOT NULL,
       descripcion TEXT,
       categoria_id INTEGER,
-      marca_id INTEGER,
       precio REAL NOT NULL,
       fecha_ultima_actualizacion_precio TEXT,
       cantidad INTEGER DEFAULT 0,
       fecha_ultima_repo TEXT,
       imagen TEXT,
-      FOREIGN KEY (categoria_id) REFERENCES categorias(id),
-      FOREIGN KEY (marca_id) REFERENCES marcas(id)
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
     );`);
     tx.executeSql(`CREATE TABLE IF NOT EXISTS clientes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nombre TEXT NOT NULL,
       correo TEXT,
       telefono TEXT
-    );`);
-    tx.executeSql(`CREATE TABLE IF NOT EXISTS usuarios (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nombre TEXT NOT NULL,
-      ci TEXT NOT NULL UNIQUE,
-      telefono TEXT,
-      correo TEXT UNIQUE,
-      rol_id INTEGER
     );`);
     // Tablas de movimientos y relaciones
     tx.executeSql(`CREATE TABLE IF NOT EXISTS ventas (
@@ -127,40 +114,31 @@ export async function initDB() {
       precio_unitario REAL
     );`);
     tx.executeSql(`CREATE TABLE IF NOT EXISTS stock (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
       producto_id INTEGER,
       ubicacion_id INTEGER,
       cantidad INTEGER,
-      UNIQUE(producto_id, ubicacion_id)
+      PRIMARY KEY (producto_id, ubicacion_id)
     );`);
     tx.executeSql(`CREATE TABLE IF NOT EXISTS stock_movimientos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       producto_id INTEGER,
-      fecha TEXT,
+      fecha TEXT DEFAULT (datetime('now')),
       tipo TEXT,
       cantidad INTEGER,
-      referencia_id INTEGER,
-      usuario_id INTEGER
+      referencia_id INTEGER
     );`);
-    tx.executeSql(`CREATE TABLE IF NOT EXISTS productos_precio_historial (
+    tx.executeSql(`CREATE TABLE IF NOT EXISTS proveedor_producto (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      proveedor_id INTEGER,
       producto_id INTEGER,
-      precio REAL,
-      fecha_ultima_actualizacion_precio TEXT
+      fecha TEXT,
+      cantidad INTEGER,
+      precio_compra REAL
     );`);
-    // Tablas de seguridad y control (opcional, para futuras mejoras)
-    tx.executeSql(`CREATE TABLE IF NOT EXISTS roles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nombre TEXT NOT NULL UNIQUE
-    );`);
-    tx.executeSql(`CREATE TABLE IF NOT EXISTS permisos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nombre TEXT NOT NULL UNIQUE
-    );`);
-    tx.executeSql(`CREATE TABLE IF NOT EXISTS rol_permisos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      role_id INTEGER,
-      permiso_id INTEGER
+    tx.executeSql(`CREATE TABLE IF NOT EXISTS resumen_ventas_diarias (
+      dia TEXT PRIMARY KEY,
+      total_ventas INTEGER,
+      monto_total REAL
     );`);
   });
 }
@@ -182,39 +160,23 @@ export async function initDBWithTestData() {
     tx.executeSql('DELETE FROM productos');
     tx.executeSql('DELETE FROM proveedores');
     tx.executeSql('DELETE FROM categorias');
-    tx.executeSql('DELETE FROM marcas');
     tx.executeSql('DELETE FROM ubicaciones');
-    // Insertar datos de prueba básicos (puedes expandir con más INSERTs según inventario.txt)
-    // Categorías
-    tx.executeSql('INSERT INTO categorias (nombre, descripcion) VALUES (?,?)', ['Frenos', 'Piezas relacionadas con el sistema de frenado']);
-    tx.executeSql('INSERT INTO categorias (nombre, descripcion) VALUES (?,?)', ['Suspensión', 'Elementos para la suspensión de la moto']);
-    tx.executeSql('INSERT INTO categorias (nombre, descripcion) VALUES (?,?)', ['Motor', 'Componentes del motor']);
-    tx.executeSql('INSERT INTO categorias (nombre, descripcion) VALUES (?,?)', ['Transmisión', 'Piezas de la transmisión y cadena']);
-    tx.executeSql('INSERT INTO categorias (nombre, descripcion) VALUES (?,?)', ['Accesorios', 'Complementos y accesorios varios']);
-    // Marcas
-    tx.executeSql('INSERT INTO marcas (nombre) VALUES (?)', ['Yamaha']);
-    tx.executeSql('INSERT INTO marcas (nombre) VALUES (?)', ['Honda']);
-    tx.executeSql('INSERT INTO marcas (nombre) VALUES (?)', ['Suzuki']);
-    tx.executeSql('INSERT INTO marcas (nombre) VALUES (?)', ['Kawasaki']);
-    tx.executeSql('INSERT INTO marcas (nombre) VALUES (?)', ['Ducati']);
-    // Ubicaciones
-    tx.executeSql('INSERT INTO ubicaciones (nombre, direccion) VALUES (?,?)', ['Almacén Central', 'Calle Principal 100']);
-    tx.executeSql('INSERT INTO ubicaciones (nombre, direccion) VALUES (?,?)', ['Sucursal Norte', 'Av. Norte 200']);
-    tx.executeSql('INSERT INTO ubicaciones (nombre, direccion) VALUES (?,?)', ['Sucursal Sur', 'Av. Sur 300']);
-    tx.executeSql('INSERT INTO ubicaciones (nombre, direccion) VALUES (?,?)', ['Almacén Temporario', 'Calle Temporal 50']);
-    tx.executeSql('INSERT INTO ubicaciones (nombre, direccion) VALUES (?,?)', ['Depósito de Respaldo', 'Calle Respaldo 10']);
-    // Proveedores
-    tx.executeSql('INSERT INTO proveedores (nombre, direccion, telefono, correo) VALUES (?,?,?,?)', ['Proveedor A', 'Calle 10', '1234567890', 'proveedora@example.com']);
-    tx.executeSql('INSERT INTO proveedores (nombre, direccion, telefono, correo) VALUES (?,?,?,?)', ['Proveedor B', 'Av. Central 123', '2345678901', 'proveedorb@example.com']);
-    tx.executeSql('INSERT INTO proveedores (nombre, direccion, telefono, correo) VALUES (?,?,?,?)', ['Proveedor C', 'Calle 20', '3456789012', 'proveedorc@example.com']);
-    tx.executeSql('INSERT INTO proveedores (nombre, direccion, telefono, correo) VALUES (?,?,?,?)', ['Proveedor D', 'Av. Industrial 50', '4567890123', 'proveedord@example.com']);
-    tx.executeSql('INSERT INTO proveedores (nombre, direccion, telefono, correo) VALUES (?,?,?,?)', ['Proveedor E', 'Calle Comercio 5', '5678901234', 'proveedore@example.com']);
-    // Productos (relacionados con categoría y marca por id)
-    tx.executeSql('INSERT INTO productos (sku, barcode, nombre, descripcion, categoria_id, marca_id, precio, fecha_ultima_actualizacion_precio, cantidad, fecha_ultima_repo, imagen) VALUES (?,?,?,?,?,?,?,?,?,?,?)', ['SKU001','BAR001','Pastilla de freno','Pastillas de freno de alta calidad',1,1,50.00,'2025-05-01',100,'2025-05-02','http://example.com/img001.jpg']);
-    tx.executeSql('INSERT INTO productos (sku, barcode, nombre, descripcion, categoria_id, marca_id, precio, fecha_ultima_actualizacion_precio, cantidad, fecha_ultima_repo, imagen) VALUES (?,?,?,?,?,?,?,?,?,?,?)', ['SKU002','BAR002','Amortiguador','Amortiguador robusto para suspensión',2,2,120.00,'2025-05-02',50,'2025-05-03','http://example.com/img002.jpg']);
-    tx.executeSql('INSERT INTO productos (sku, barcode, nombre, descripcion, categoria_id, marca_id, precio, fecha_ultima_actualizacion_precio, cantidad, fecha_ultima_repo, imagen) VALUES (?,?,?,?,?,?,?,?,?,?,?)', ['SKU003','BAR003','Filtro de aire','Filtro de aire para motores',3,3,30.00,'2025-05-03',70,'2025-05-04','http://example.com/img003.jpg']);
-    tx.executeSql('INSERT INTO productos (sku, barcode, nombre, descripcion, categoria_id, marca_id, precio, fecha_ultima_actualizacion_precio, cantidad, fecha_ultima_repo, imagen) VALUES (?,?,?,?,?,?,?,?,?,?,?)', ['SKU004','BAR004','Cadena','Cadena de transmisión resistente',4,4,80.00,'2025-05-04',40,'2025-05-05','http://example.com/img004.jpg']);
-    tx.executeSql('INSERT INTO productos (sku, barcode, nombre, descripcion, categoria_id, marca_id, precio, fecha_ultima_actualizacion_precio, cantidad, fecha_ultima_repo, imagen) VALUES (?,?,?,?,?,?,?,?,?,?,?)', ['SKU005','BAR005','Casco','Casco de protección integral',5,5,200.00,'2025-05-05',25,'2025-05-06','http://example.com/img005.jpg']);
+    tx.executeSql('DELETE FROM clientes');
+    tx.executeSql('DELETE FROM stock');
+    tx.executeSql('DELETE FROM stock_movimientos');
+    tx.executeSql('DELETE FROM proveedor_producto');
+    tx.executeSql('DELETE FROM ventas');
+    tx.executeSql('DELETE FROM detalle_venta');
+    tx.executeSql('DELETE FROM resumen_ventas_diarias');
+    // Insertar datos de prueba mínimos
+    tx.executeSql('INSERT INTO categorias (nombre, descripcion) VALUES (?,?)', ['Electrónica', null]);
+    tx.executeSql('INSERT INTO ubicaciones (nombre, direccion) VALUES (?,?)', ['Almacén Principal', null]);
+    tx.executeSql('INSERT INTO proveedores (nombre, direccion, telefono, correo) VALUES (?,?,?,?)', ['Tech Distribuidora', 'Calle Falsa 123', null, null]);
+    tx.executeSql('INSERT INTO productos (sku, nombre, categoria_id, precio) VALUES (?,?,?,?)', ['PROD001', 'Televisor 4K', 1, 899.99]);
+    tx.executeSql('INSERT INTO clientes (nombre) VALUES (?)', ['Cliente Prueba']);
+    tx.executeSql('INSERT INTO proveedor_producto (proveedor_id, producto_id, fecha, cantidad, precio_compra) VALUES (?,?,?,?,?)', [1, 1, new Date().toISOString().slice(0,10), 10, 700.00]);
+    tx.executeSql('INSERT INTO ventas (cliente_id, total) VALUES (?,?)', [1, 999.99]);
+    tx.executeSql('INSERT INTO detalle_venta (venta_id, producto_id, cantidad, precio_unitario) VALUES (?,?,?,?)', [1, 1, 1, 999.99]);
   });
   return true;
 }

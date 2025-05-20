@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { query } from '../../components/mysqlClient';
+import RoleSwitcher from '../../components/RoleSwitcher';
 
 export default function StatisticsScreen() {
   const [stats, setStats] = useState(null);
@@ -12,8 +13,8 @@ export default function StatisticsScreen() {
 
   async function fetchStats() {
     try {
-      const prodRows = await query('SELECT COUNT(*) as total, SUM(cantidad) as stock, SUM(precio * cantidad) as valor FROM productos WHERE is_active = 1');
-      const provRows = await query('SELECT COUNT(*) as total FROM proveedores WHERE is_active = 1');
+      const prodRows = await query('SELECT COUNT(*) as total, SUM(cantidad) as stock, SUM(precio * cantidad) as valor FROM productos');
+      const provRows = await query('SELECT COUNT(*) as total FROM proveedores');
       setStats({
         productos: prodRows[0]?.total || 0,
         stock: prodRows[0]?.stock || 0,
@@ -36,6 +37,7 @@ export default function StatisticsScreen() {
 
   return (
     <View style={styles.container}>
+      <RoleSwitcher />
       <Text style={styles.title}>Estadísticas</Text>
       <Text style={styles.subtitle}>Visualiza métricas y reportes de tu inventario.</Text>
       {stats ? (

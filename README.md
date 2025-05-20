@@ -22,7 +22,7 @@ Este proyecto es una app Expo React Native para la gestión de productos, provee
 
 ## Estructura
 - `app/(tabs)/index.tsx`: Pantalla de productos
-- `app/(tabs)/two.tsx`: Pantalla de proveedores
+- `app/(tabs)/providers.tsx`: Pantalla de proveedores
 - `app/(tabs)/statistics.tsx`: Pantalla de estadísticas
 
 ## Personalización

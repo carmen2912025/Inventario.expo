@@ -9,11 +9,6 @@ CREATE TABLE IF NOT EXISTS categorias (
   descripcion VARCHAR(255)
 );
 
-CREATE TABLE IF NOT EXISTS marcas (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  nombre VARCHAR(100) NOT NULL UNIQUE
-);
-
 CREATE TABLE IF NOT EXISTS ubicaciones (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(100) NOT NULL UNIQUE,
@@ -36,15 +31,13 @@ CREATE TABLE IF NOT EXISTS productos (
   nombre VARCHAR(100) NOT NULL,
   descripcion VARCHAR(255),
   categoria_id INT,
-  marca_id INT,
   precio DECIMAL(10,2) NOT NULL,
   fecha_ultima_actualizacion_precio DATE,
   cantidad INT DEFAULT 0,
   fecha_ultima_repo DATE,
   imagen VARCHAR(255),
   is_active TINYINT(1) DEFAULT 1,
-  FOREIGN KEY (categoria_id) REFERENCES categorias(id),
-  FOREIGN KEY (marca_id) REFERENCES marcas(id)
+  FOREIGN KEY (categoria_id) REFERENCES categorias(id)
 );
 
 -- Agregar/ajustar tablas adicionales según necesidades del proyecto

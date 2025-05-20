@@ -1,0 +1,9 @@
+Funcionalidades del sistema propuesto (Requisitos funcionales):
+1.	Precisión de Datos: Los datos de inventario sean precisos y estén actualizados en todo momento. Esto incluye la cantidad de productos, ubicaciones y detalles de cada artículo.
+2.	Automatización:  Esto puede incluir el uso de códigos de barras para reducir errores humanos y mejorar la eficiencia.
+3.	Integración: El sistema de inventario debe integrarse con las ventas y compras, para garantizar un flujo de información coherente y actualizado.
+4.	Accesibilidad: Asegúrate de que el sistema sea accesible para todos los usuarios autorizados, desde cualquier lugar y en cualquier momento. Esto puede lograrse mediante soluciones basadas en la nube.
+5.	Seguridad: Implementa medidas de seguridad para proteger los datos de inventario contra accesos no autorizados y pérdidas de datos.
+6.	Capacitación: Capacita al personal en el uso del sistema de inventario para garantizar que todos los usuarios sepan cómo utilizarlo correctamente y aprovechar todas sus funcionalidades.
+7.	Reportes y Análisis: El sistema debe proporcionar herramientas de reportes y análisis para monitorear el rendimiento del inventario, identificar tendencias y tomar decisiones informadas.
+8.	Escalabilidad: Asegúrate de que el sistema pueda crecer con el negocio y manejar un aumento en la cantidad de productos y transacciones.

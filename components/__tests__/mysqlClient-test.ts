@@ -1,1 +1,0 @@
-// Eliminado: este test ya no es relevante tras la migración a API REST.
