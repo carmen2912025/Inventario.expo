@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, FlatList, TextInput, Alert, View, Text } from 'react-native';
+import { StyleSheet, FlatList, TextInput, View, Text } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Button as PaperButton } from 'react-native-paper';
 import { API_BASE_URL } from '../../constants/api';
@@ -8,62 +8,65 @@ import RoleSwitcher from '../../components/RoleSwitcher';
 export default function ProductsScreen() {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [sortOrder, setSortOrder] = useState('asc');
+  const [searchQuery, setSearchQuery] = useState('');
   const [userRole, setUserRole] = useState('client');
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
   useEffect(() => {
     filterProducts();
-  }, [products, searchQuery, selectedCategory, sortOrder]);
+  }, [products, selectedCategory, searchQuery]);
 
   const fetchProducts = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/products`);
       const data = await response.json();
+      if (!Array.isArray(data)) {
+        setProducts([]);
+        setFilteredProducts([]);
+        return;
+      }
       setProducts(data);
     } catch (error) {
-      console.error(error);
-      Alert.alert('Error', 'Failed to fetch products');
+      setProducts([]);
+      setFilteredProducts([]);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/categories`);
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      setCategories([]);
     }
   };
 
   const filterProducts = () => {
     let filtered = products;
-
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter((product) => product.categoria_id === selectedCategory);
+    }
     if (searchQuery) {
       filtered = filtered.filter((product) =>
-        product.name.toLowerCase().includes(searchQuery.toLowerCase())
+        product.nombre.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter((product) => product.category === selectedCategory);
-    }
-
-    if (sortOrder === 'asc') {
-      filtered = filtered.sort((a, b) => (a.price > b.price ? 1 : -1));
-    } else {
-      filtered = filtered.sort((a, b) => (a.price < b.price ? 1 : -1));
-    }
-
     setFilteredProducts(filtered);
   };
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
+  const handleCategoryChange = (value) => {
+    setSelectedCategory(value);
   };
 
-  const handleCategoryChange = (category) => {
-    setSelectedCategory(category);
-  };
-
-  const handleSortOrderChange = (order) => {
-    setSortOrder(order);
+  const handleSearch = (text) => {
+    setSearchQuery(text);
   };
 
   const handleRoleChange = (role) => {
@@ -72,9 +75,11 @@ export default function ProductsScreen() {
 
   const renderProductItem = ({ item }) => (
     <View style={styles.productItem}>
-      <Text style={styles.productName}>{item.name}</Text>
+      <Text style={styles.productName}>{item.nombre}</Text>
       <Text style={styles.productPrice}>
-        {typeof item.price === 'number' && !isNaN(item.price) ? `$${item.price.toFixed(2)}` : 'Precio no disponible'}
+        {item.precio !== undefined && item.precio !== null && !isNaN(Number(item.precio))
+          ? `$${Number(item.precio).toFixed(2)}`
+          : 'Precio no disponible'}
       </Text>
     </View>
   );
@@ -84,7 +89,7 @@ export default function ProductsScreen() {
       <RoleSwitcher userRole={userRole} onRoleChange={handleRoleChange} />
       <TextInput
         style={styles.searchInput}
-        placeholder="Search products"
+        placeholder="Buscar productos..."
         value={searchQuery}
         onChangeText={handleSearch}
       />
@@ -93,18 +98,10 @@ export default function ProductsScreen() {
         onValueChange={handleCategoryChange}
         style={styles.picker}
       >
-        <Picker.Item label="All Categories" value="all" />
-        <Picker.Item label="Category 1" value="category1" />
-        <Picker.Item label="Category 2" value="category2" />
-        {/* Add more categories as needed */}
-      </Picker>
-      <Picker
-        selectedValue={sortOrder}
-        onValueChange={handleSortOrderChange}
-        style={styles.picker}
-      >
-        <Picker.Item label="Price: Low to High" value="asc" />
-        <Picker.Item label="Price: High to Low" value="desc" />
+        <Picker.Item label="Todas las categorías" value="all" />
+        {categories.map((cat) => (
+          <Picker.Item key={cat.id} label={cat.nombre} value={cat.id} />
+        ))}
       </Picker>
       <FlatList
         data={filteredProducts}
@@ -113,7 +110,7 @@ export default function ProductsScreen() {
         contentContainerStyle={styles.productList}
       />
       <PaperButton mode="contained" onPress={fetchProducts} style={styles.refreshButton}>
-        Refresh Products
+        Refrescar productos
       </PaperButton>
     </View>
   );

@@ -54,12 +54,19 @@ export default function ProvidersScreen() {
   }
 
   async function submitProvider() {
+    const errors = [];
     if (!nombre) {
-      setFeedback('El nombre es obligatorio');
-      return;
+      errors.push('El nombre es obligatorio');
     }
     if (correo && !isValidEmail(correo)) {
-      setFeedback('Correo inválido');
+      errors.push('Correo inválido');
+    }
+    if (telefono && isNaN(telefono)) {
+      errors.push('El teléfono debe ser numérico');
+    }
+    if (errors.length > 0) {
+      setFeedback(errors.join('\n'));
+      Alert.alert('Error', errors.join('\n'));
       return;
     }
     setSubmitting(true);
@@ -74,6 +81,7 @@ export default function ProvidersScreen() {
       });
       if (!res.ok) {
         const err = await res.json();
+        Alert.alert('Error', err.error || 'No se pudo agregar el proveedor');
         setFeedback(err.error || 'No se pudo agregar el proveedor');
         setSubmitting(false);
         return;
@@ -83,6 +91,7 @@ export default function ProvidersScreen() {
       setModalVisible(false);
       fetchProviders();
     } catch (error) {
+      Alert.alert('Error', 'No se pudo agregar el proveedor');
       setFeedback('No se pudo agregar el proveedor');
     } finally {
       setSubmitting(false);
@@ -135,7 +144,15 @@ export default function ProvidersScreen() {
         ListEmptyComponent={<Text style={{ textAlign: 'center', color: '#888' }}>Sin proveedores</Text>}
       />
       {!!feedback && (
-        <Text style={{ color: feedback.includes('correctamente') ? 'green' : 'red', marginBottom: 8 }}>{feedback}</Text>
+        Array.isArray(feedback.split('\n')) && feedback.includes('\n') ? (
+          <View style={{ marginBottom: 8 }}>
+            {feedback.split('\n').map((err, idx) => (
+              <Text key={idx} style={{ color: 'red' }}>{err}</Text>
+            ))}
+          </View>
+        ) : (
+          <Text style={{ color: feedback.includes('correctamente') ? 'green' : 'red', marginBottom: 8 }}>{feedback}</Text>
+        )
       )}
       <TouchableOpacity style={styles.addButton} onPress={handleAddProvider}>
         <Text style={styles.addButtonText}>Agregar proveedor</Text>

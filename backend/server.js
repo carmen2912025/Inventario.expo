@@ -27,8 +27,12 @@ function validateFields(obj, schema) {
 
 // Endpoint para obtener productos
 app.get('/products', async (req, res) => {
+  // Paginación: ?page=1&limit=20
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
   try {
-    const [rows] = await db.query('SELECT * FROM Productos');
+    const [rows] = await db.query('SELECT * FROM Productos LIMIT ? OFFSET ?', [limit, offset]);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

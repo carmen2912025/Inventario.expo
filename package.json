@@ -10,22 +10,9 @@
     "test": "jest --watchAll",
     "postinstall": "powershell -Command \"New-Item -ItemType Directory -Path .\\node_modules\\expo-sqlite\\web\\wa-sqlite -Force; Copy-Item .\\public\\wa-sqlite.wasm .\\node_modules\\expo-sqlite\\web\\wa-sqlite\\wa-sqlite.wasm -Force\""
   },
-  "jest": {
-    "preset": "jest-expo",
-    "testMatch": [
-      "**/__tests__/**/*.js?(x)",
-      "**/?(*.)+(spec|test).js?(x)"
-    ],
-    "transformIgnorePatterns": [
-      "node_modules/(?!(mysql2)/)"
-    ],
-    "modulePathIgnorePatterns": [
-      "<rootDir>/components/__tests__/mysqlClient-test.js",
-      "<rootDir>/components/__tests__/mysqlClient-test.ts"
-    ]
-  },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
+    "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-picker/picker": "^2.11.0",
     "@react-navigation/native": "^7.1.6",
     "expo": "~53.0.9",
@@ -51,7 +38,10 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.2.0",
     "@types/react": "~19.0.10",
+    "babel-preset-expo": "^13.1.11",
     "jest": "^29.2.1",
     "jest-expo": "~53.0.5",
     "react-test-renderer": "19.0.0",

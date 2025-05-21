@@ -37,8 +37,20 @@ export default function SalesScreen() {
   };
 
   const submitSale = async () => {
-    if (!clienteId || !total) {
-      setFeedback('Cliente ID y total son obligatorios');
+    const errors = [];
+    if (!clienteId) {
+      errors.push('Cliente ID es obligatorio');
+    } else if (isNaN(clienteId) || parseInt(clienteId) <= 0) {
+      errors.push('Cliente ID debe ser un número válido');
+    }
+    if (!total) {
+      errors.push('Total es obligatorio');
+    } else if (isNaN(total) || parseFloat(total) <= 0) {
+      errors.push('El total debe ser un número mayor a 0');
+    }
+    if (errors.length > 0) {
+      setFeedback(errors.join('\n'));
+      Alert.alert('Error', errors.join('\n'));
       return;
     }
     setSubmitting(true);
@@ -55,6 +67,7 @@ export default function SalesScreen() {
       setModalVisible(false);
       fetchSalesData();
     } catch (error) {
+      Alert.alert('Error', 'No se pudo agregar la venta');
       setFeedback('No se pudo agregar la venta');
     } finally {
       setSubmitting(false);
@@ -86,7 +99,15 @@ export default function SalesScreen() {
         contentContainerStyle={styles.listContainer}
       />
       {!!feedback && (
-        <Text style={{ color: feedback.includes('correctamente') ? 'green' : 'red', marginBottom: 8 }}>{feedback}</Text>
+        Array.isArray(feedback.split('\n')) && feedback.includes('\n') ? (
+          <View style={{ marginBottom: 8 }}>
+            {feedback.split('\n').map((err, idx) => (
+              <Text key={idx} style={{ color: 'red' }}>{err}</Text>
+            ))}
+          </View>
+        ) : (
+          <Text style={{ color: feedback.includes('correctamente') ? 'green' : 'red', marginBottom: 8 }}>{feedback}</Text>
+        )
       )}
       <PaperButton mode="contained" onPress={handleAddSale} style={styles.button}>
         Agregar Venta

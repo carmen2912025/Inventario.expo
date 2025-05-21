@@ -18,7 +18,7 @@ export default function TrabajadorTabLayout() {
         headerShown: useClientOnlyValue(false, true),
       }}>
       <Tabs.Screen name="productos" options={{ title: 'Productos', tabBarIcon: ({ color }) => <TabBarIcon name="archive" color={color} /> }} />
-      <Tabs.Screen name="salesTrabajador" options={{ title: 'Ventas', tabBarIcon: ({ color }) => <TabBarIcon name="shopping-cart" color={color} /> }} />
+      <Tabs.Screen name="salesTrabajador" options={{ title: 'Listas de Compras', tabBarIcon: ({ color }) => <TabBarIcon name="shopping-cart" color={color} /> }} />
       <Tabs.Screen name="statisticsTrabajador" options={{ title: 'Estadísticas', tabBarIcon: ({ color }) => <TabBarIcon name="bar-chart" color={color} /> }} />
     </Tabs>
   );

@@ -29,7 +29,18 @@ export default function UsersScreen() {
   function fetchUsers() {
     fetch(`${API_BASE_URL}/users`)
       .then(res => res.json())
-      .then(setUsers);
+      .then(data => {
+        if (!Array.isArray(data)) {
+          setUsers([]);
+          Alert.alert('Error', 'No se pudo cargar la lista de usuarios');
+          return;
+        }
+        setUsers(data);
+      })
+      .catch(() => {
+        setUsers([]);
+        Alert.alert('Error', 'No se pudo cargar la lista de usuarios');
+      });
   }
 
   // --- Validación avanzada ---

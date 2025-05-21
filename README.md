@@ -28,6 +28,35 @@ Este proyecto es una app Expo React Native para la gestión de productos, provee
 ## Personalización
 Puedes modificar los archivos de cada pantalla para agregar funcionalidades CRUD, gráficos, etc.
 
+## Variables de entorno
+
+La URL de la API se configura en `app.json` dentro del bloque `extra`:
+
+```json
+"extra": {
+  "API_URL": "http://192.168.1.100:3001"
+}
+```
+
+Puedes cambiar esta URL según tu entorno (desarrollo, producción, etc). La app la leerá automáticamente.
+
+## Pruebas
+
+Para ejecutar los tests:
+
+```sh
+npm test
+```
+
+## Seguridad
+
+- No subas archivos sensibles como `google-services.json` o claves privadas al repositorio.
+- Usa variables de entorno para claves y URLs.
+
+## Paginación y rendimiento
+
+Si tu inventario crece, implementa paginación en los fetch y en los FlatList usando `onEndReached`.
+
 ---
 
 Proyecto creado con Expo Router y TypeScript.
