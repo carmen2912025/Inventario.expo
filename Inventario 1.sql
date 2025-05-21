@@ -1,3 +1,4 @@
+use inventario;
 -- -----------------------------------------------------------
 -- 0. ELIMINAR TABLAS EN ORDEN DE DEPENDENCIAS
 -- -----------------------------------------------------------
@@ -147,7 +148,7 @@ CREATE TABLE ApiTokens (
 );
 
 -- -----------------------------------------------------------
--- 4. MOVIMIENTOS Y STOCK
+-- 4. MOVIMIENTOS Y STOCK (VERSIÓN CORREGIDA)
 -- -----------------------------------------------------------
 CREATE TABLE ProveedorProducto (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -211,40 +212,43 @@ CREATE TABLE StockMovimientos (
 );
 
 -- -----------------------------------------------------------
--- 5. TRIGGERS
+-- 5. TRIGGERS ACTUALIZADOS
 -- -----------------------------------------------------------
 DELIMITER //
 
+-- Trigger modificado para ubicación específica
 CREATE TRIGGER trg_after_proveedor_producto_insert
 AFTER INSERT ON ProveedorProducto
 FOR EACH ROW
 BEGIN
-    INSERT INTO StockMovimientos(producto_id, tipo, cantidad, referencia_id, usuario_id)
-    VALUES (NEW.producto_id, 'COMPRA', NEW.cantidad, NEW.id, NULL);
+    -- Registrar movimiento de compra
+    INSERT INTO StockMovimientos(producto_id, tipo, cantidad, referencia_id)
+    VALUES (NEW.producto_id, 'COMPRA', NEW.cantidad, NEW.id);
 
+    -- Actualizar stock en ubicación principal (1)
     INSERT INTO Stock(producto_id, ubicacion_id, cantidad)
     VALUES (NEW.producto_id, 1, NEW.cantidad)
     ON DUPLICATE KEY UPDATE cantidad = cantidad + NEW.cantidad;
 END;
 //
 
+-- Trigger para ventas (sin cambios)
 CREATE TRIGGER trg_after_detalle_venta_insert
 AFTER INSERT ON DetalleVenta
 FOR EACH ROW
 BEGIN
-    INSERT INTO StockMovimientos(producto_id, tipo, cantidad, referencia_id, usuario_id)
-    VALUES (NEW.producto_id, 'VENTA', NEW.cantidad, NEW.id, NULL);
+    INSERT INTO StockMovimientos(producto_id, tipo, cantidad, referencia_id)
+    VALUES (NEW.producto_id, 'VENTA', NEW.cantidad, NEW.id);
 
     UPDATE Stock
     SET cantidad = cantidad - NEW.cantidad
     WHERE producto_id = NEW.producto_id AND ubicacion_id = 1;
 END;
 //
-
 DELIMITER ;
 
 -- -----------------------------------------------------------
--- 6. VISTA MATERIALIZADA / EVENTO
+-- 6. VISTA MATERIALIZADA / EVENTO (SIN CAMBIOS)
 -- -----------------------------------------------------------
 CREATE TABLE ResumenVentasDiarias (
     dia DATE PRIMARY KEY,
@@ -252,12 +256,7 @@ CREATE TABLE ResumenVentasDiarias (
     monto_total DECIMAL(12,2)
 );
 
--- Activar el Event Scheduler (temporal)
 SET GLOBAL event_scheduler = ON;
-
--- Conceder permisos EVENT si es necesario
--- GRANT EVENT ON inventario.* TO 'tu_usuario'@'localhost';
--- FLUSH PRIVILEGES;
 
 CREATE EVENT IF NOT EXISTS evt_refrescar_resumen_ventas
 ON SCHEDULE EVERY 1 DAY STARTS CURRENT_TIMESTAMP + INTERVAL 1 DAY
@@ -268,7 +267,7 @@ DO
   GROUP BY DATE(fecha);
 
 -- -----------------------------------------------------------
--- 7. AUDITORÍA
+-- 7. AUDITORÍA (SIN CAMBIOS)
 -- -----------------------------------------------------------
 CREATE TABLE AuditLog (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -282,34 +281,75 @@ CREATE TABLE AuditLog (
 );
 
 -- -----------------------------------------------------------
--- 8. SCRIPT DE PRUEBA (POBLAR DATOS BÁSICOS)
+-- 8. DATOS DE PRUEBA OPTIMIZADOS (VERSIÓN FINAL)
 -- -----------------------------------------------------------
+START TRANSACTION;
 
-INSERT INTO Roles(nombre) VALUES ('Admin'), ('Vendedor');
-INSERT INTO Permisos(nombre) VALUES ('gestionar_usuarios'), ('registrar_ventas'), ('ver_reportes');
+-- Roles y permisos
+INSERT INTO Roles(nombre) VALUES 
+('Admin'), ('Vendedor'), ('Inventario'), ('Gerente'), ('Soporte');
 
-INSERT INTO RolPermisos(role_id, permiso_id)
-SELECT r.id, p.id
-FROM Roles r, Permisos p;
+INSERT INTO Permisos(nombre) VALUES 
+('gestionar_usuarios'), ('registrar_ventas'), ('ver_reportes'),
+('gestionar_stock'), ('auditoria'), ('configuracion_sistema');
 
-INSERT INTO Usuarios(nombre, ci, telefono, correo, rol_id)
-VALUES ('Juan Pérez', '12345678', '789123456', 'juan@example.com', 1);
+INSERT INTO RolPermisos(role_id, permiso_id) VALUES
+(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6),
+(2, 2), (2, 3), (3, 4), (3, 3), (4, 3), (4, 5), (5, 3);
 
-INSERT INTO Categorias(nombre) VALUES ('Electrónica');
-INSERT INTO Marcas(nombre) VALUES ('Samsung');
-INSERT INTO Ubicaciones(nombre) VALUES ('Almacén Principal');
-INSERT INTO Proveedores(nombre, direccion) VALUES ('Tech Distribuidora', 'Calle Falsa 123');
+-- Usuarios
+INSERT INTO Usuarios (nombre, ci, telefono, correo, rol_id) VALUES
+('Ana García', '11223344', '611223344', 'ana.garcia@empresa.com', 1),
+('Carlos Ruiz', '22334455', '622334455', 'carlos.ruiz@empresa.com', 2),
+('María López', '33445566', '633445566', 'maria.lopez@empresa.com', 3);
 
-INSERT INTO Productos(sku, nombre, categoria_id, marca_id, precio)
-VALUES ('PROD001', 'Televisor 4K', 1, 1, 899.99);
+-- Catálogos base
+INSERT INTO Categorias (nombre, descripcion) VALUES
+('Electrónica', 'Dispositivos electrónicos y componentes'),
+('Electrodomésticos', 'Aparatos para el hogar'),
+('Informática', 'Equipos y accesorios de computación');
 
-INSERT INTO Clientes(nombre) VALUES ('Cliente Prueba');
+INSERT INTO Marcas (nombre) VALUES
+('Samsung'), ('LG'), ('Apple'), ('Sony'), ('Philips');
 
-INSERT INTO ProveedorProducto(proveedor_id, producto_id, fecha, cantidad, precio_compra)
-VALUES (1, 1, CURDATE(), 10, 700.00);
+INSERT INTO Ubicaciones (nombre, direccion) VALUES
+('Almacén Principal', 'Calle Industria 123'),
+('Almacén Secundario', 'Avenida Comercio 456'),
+('Mostrador Ventas', 'Centro Comercial MegaPlaza');
 
-INSERT INTO Ventas(cliente_id, total, created_by)
-VALUES (1, 999.99, 1);
+INSERT INTO Proveedores (nombre, direccion, telefono, correo) VALUES
+('TechWorld Distribuidora', 'Av. Tecnológica 789', '912345678', 'ventas@techworld.com'),
+('ElectroSuministros SA', 'Calle Circuito 321', '915555555', 'contacto@electrosuministros.com');
 
-INSERT INTO DetalleVenta(venta_id, producto_id, cantidad, precio_unitario)
-VALUES (1, 1, 1, 999.99);
+-- Productos (Stock inicial se genera via ProveedorProducto)
+INSERT INTO Productos (sku, nombre, categoria_id, marca_id, precio) VALUES
+('TV-LED-55', 'Televisor LED 55" 4K', 1, 1, 899.99),
+('LAP-APP-M1', 'MacBook Air M1', 3, 3, 1299.00),
+('REF-LG-500', 'Refrigerador LG 500L', 2, 2, 1599.00);
+
+-- Compras iniciales (generan stock en ubicación 1 via trigger)
+INSERT INTO ProveedorProducto (proveedor_id, producto_id, fecha, cantidad, precio_compra) VALUES
+(1, 1, CURDATE(), 20, 650.00),
+(1, 3, CURDATE(), 10, 1200.00),
+(2, 2, CURDATE(), 15, 1100.00);
+
+-- Stock adicional en otras ubicaciones (inserts manuales seguros)
+INSERT INTO Stock (producto_id, ubicacion_id, cantidad) VALUES
+(1, 3, 5),    -- Mostrador Ventas
+(3, 2, 5);    -- Almacén Secundario
+
+-- Clientes y ventas
+INSERT INTO Clientes (nombre, correo, telefono) VALUES
+('Marta Rodríguez', 'marta.rodriguez@mail.com', '600112233'),
+('Empresa Tech Solutions', 'compras@techsolutions.com', '900111222');
+
+INSERT INTO Ventas (cliente_id, total, created_by) VALUES
+(1, 1799.98, 2),
+(2, 3198.00, 2);
+
+INSERT INTO DetalleVenta (venta_id, producto_id, cantidad, precio_unitario) VALUES
+(1, 1, 2, 899.99),
+(2, 2, 1, 1299.00),
+(2, 3, 1, 1899.00);
+
+COMMIT;

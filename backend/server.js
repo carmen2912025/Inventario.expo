@@ -406,6 +406,186 @@ app.get('/sales-summary', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// --- MARCAS ---
+app.get('/brands', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM Marcas');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.post('/brands', async (req, res) => {
+  const { nombre } = req.body;
+  const error = validateFields(req.body, {
+    nombre: { required: true, type: 'string' },
+  });
+  if (error) return res.status(400).json({ error });
+  try {
+    const [result] = await db.query('INSERT INTO Marcas (nombre) VALUES (?)', [nombre]);
+    res.json({ id: result.insertId, nombre });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.put('/brands/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre } = req.body;
+  try {
+    await db.query('UPDATE Marcas SET nombre=? WHERE id=?', [nombre, id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.delete('/brands/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query('DELETE FROM Marcas WHERE id=?', [id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- ROLES ---
+app.get('/roles', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM Roles');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.post('/roles', async (req, res) => {
+  const { nombre } = req.body;
+  const error = validateFields(req.body, {
+    nombre: { required: true, type: 'string' },
+  });
+  if (error) return res.status(400).json({ error });
+  try {
+    const [result] = await db.query('INSERT INTO Roles (nombre) VALUES (?)', [nombre]);
+    res.json({ id: result.insertId, nombre });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.put('/roles/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre } = req.body;
+  try {
+    await db.query('UPDATE Roles SET nombre=? WHERE id=?', [nombre, id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.delete('/roles/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query('DELETE FROM Roles WHERE id=?', [id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- USUARIOS ---
+app.get('/users', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM Usuarios');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.post('/users', async (req, res) => {
+  const { nombre, ci, telefono, correo, rol_id } = req.body;
+  const error = validateFields(req.body, {
+    nombre: { required: true, type: 'string' },
+    ci: { required: true, type: 'string' },
+    telefono: { required: false, type: 'string' },
+    correo: { required: true, type: 'string', pattern: /^\S+@\S+\.\S+$/ },
+    rol_id: { required: true, type: 'number', min: 1 },
+  });
+  if (error) return res.status(400).json({ error });
+  try {
+    const [result] = await db.query('INSERT INTO Usuarios (nombre, ci, telefono, correo, rol_id) VALUES (?, ?, ?, ?, ?)', [nombre, ci, telefono, correo, rol_id]);
+    res.json({ id: result.insertId, nombre, ci, telefono, correo, rol_id });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.put('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, ci, telefono, correo, rol_id } = req.body;
+  try {
+    await db.query('UPDATE Usuarios SET nombre=?, ci=?, telefono=?, correo=?, rol_id=? WHERE id=?', [nombre, ci, telefono, correo, rol_id, id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.delete('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query('DELETE FROM Usuarios WHERE id=?', [id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- PERMISOS Y ROLPERMISOS ---
+app.get('/permissions', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM Permisos');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get('/role-permissions', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM RolPermisos');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- CAMPOS ADICIONALES EN PRODUCTOS ---
+app.put('/products/:id', async (req, res) => {
+  const { id } = req.params;
+  const { sku, nombre, descripcion, precio, cantidad, categoria_id, marca_id, barcode, fecha_ultima_actualizacion_precio, fecha_ultima_repo, imagen, is_active } = req.body;
+  try {
+    await db.query(
+      'UPDATE Productos SET sku=?, nombre=?, descripcion=?, precio=?, cantidad=?, categoria_id=?, marca_id=?, barcode=?, fecha_ultima_actualizacion_precio=?, fecha_ultima_repo=?, imagen=?, is_active=? WHERE id=?',
+      [sku, nombre, descripcion, precio, cantidad, categoria_id, marca_id, barcode, fecha_ultima_actualizacion_precio, fecha_ultima_repo, imagen, is_active, id]
+    );
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/products/full', async (req, res) => {
+  const { sku, nombre, descripcion, precio, cantidad, categoria_id, marca_id, barcode, fecha_ultima_actualizacion_precio, fecha_ultima_repo, imagen, is_active } = req.body;
+  const error = validateFields(req.body, {
+    sku: { required: true, type: 'string' },
+    nombre: { required: true, type: 'string' },
+    descripcion: { required: false, type: 'string' },
+    precio: { required: true, type: 'number', min: 0 },
+    cantidad: { required: true, type: 'number', min: 0 },
+    categoria_id: { required: false, type: 'number' },
+    marca_id: { required: false, type: 'number' },
+    barcode: { required: false, type: 'string' },
+    fecha_ultima_actualizacion_precio: { required: false, type: 'string' },
+    fecha_ultima_repo: { required: false, type: 'string' },
+    imagen: { required: false, type: 'string' },
+    is_active: { required: false, type: 'number' },
+  });
+  if (error) return res.status(400).json({ error });
+  try {
+    const [result] = await db.query(
+      'INSERT INTO Productos (sku, nombre, descripcion, precio, cantidad, categoria_id, marca_id, barcode, fecha_ultima_actualizacion_precio, fecha_ultima_repo, imagen, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+
+      [sku, nombre, descripcion, precio, cantidad, categoria_id, marca_id, barcode, fecha_ultima_actualizacion_precio, fecha_ultima_repo, imagen, is_active]
+    );
+    res.json({ id: result.insertId });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- AUDITORÍA ---
+app.get('/auditlog', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM AuditLog ORDER BY changed_at DESC LIMIT 100');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Backend corriendo en http://localhost:${PORT}`);

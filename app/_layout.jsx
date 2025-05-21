@@ -7,8 +7,9 @@ import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { View, Text, StyleSheet } from 'react-native';
-import { useRole } from '../components/RoleContext';
+import { useRole, RoleProvider } from '../components/RoleContext';
 import AuthScreen from './auth';
+import { useRouter, usePathname } from 'expo-router';
 
 export {
   ErrorBoundary,
@@ -27,7 +28,6 @@ export default function RootLayout() {
   });
   const [appIsReady, setAppIsReady] = useState(false);
   const [initError, setInitError] = useState(null);
-  const { role } = useRole();
 
   useEffect(() => {
     if (error) throw error;
@@ -62,12 +62,35 @@ export default function RootLayout() {
     );
   }
 
-  // If no role, show auth/role selector
+  // Wrap everything in RoleProvider
+  return (
+    <RoleProvider>
+      <RoleBasedLayout />
+    </RoleProvider>
+  );
+}
+
+function RoleBasedLayout() {
+  const { role } = useRole();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Redirigir automáticamente cuando cambia el rol
+  useEffect(() => {
+    if (!role) return;
+    let target = '';
+    if (role === 'administrador') target = '/admin';
+    else if (role === 'trabajador') target = '/trabajador';
+    else if (role === 'cliente') target = '/cliente';
+    // Solo redirigir si la ruta no coincide exactamente
+    if (target && !pathname.startsWith(target)) {
+      router.replace(target);
+    }
+  }, [role, pathname]);
+
   if (!role) {
     return <AuthScreen />;
   }
-
-  // If role is set, render nested layouts (admin, trabajador, cliente) via <Slot />
   return <Slot />;
 }
 

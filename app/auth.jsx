@@ -8,9 +8,9 @@ export default function AuthScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    if (role === 'administrador') router.replace('/(admin)');
-    else if (role === 'trabajador') router.replace('/(trabajador)');
-    else if (role === 'cliente') router.replace('/(cliente)');
+    if (role === 'administrador') router.replace('/admin');
+    else if (role === 'trabajador') router.replace('/trabajador');
+    else if (role === 'cliente') router.replace('/cliente');
   }, [role]);
 
   return (
