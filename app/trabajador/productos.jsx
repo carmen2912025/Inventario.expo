@@ -5,8 +5,10 @@ import { Button as PaperButton } from 'react-native-paper';
 import { API_BASE_URL } from '../../constants/api';
 import RoleSwitcher from '../../components/RoleSwitcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 
 export default function ProductsScreen() {
+  const router = useRouter();
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -217,7 +219,7 @@ export default function ProductsScreen() {
                           const stored = await AsyncStorage.getItem('shoppingLists');
                           const lists = stored ? JSON.parse(stored) : [];
                           const newList = {
-                            id: Date.now() + Math.floor(Math.random() * 10000), // Asegura unicidad
+                            id: Date.now() + Math.floor(Math.random() * 10000),
                             productos: cart,
                             total: cartTotal,
                             paid: false,
@@ -227,9 +229,8 @@ export default function ProductsScreen() {
                           setCart([]);
                           setShowCart(false);
                           if (globalThis.refreshShoppingLists) globalThis.refreshShoppingLists();
-                          // Navegar a la pantalla de listas de compras
-                          if (globalThis.navigateToShoppingLists) globalThis.navigateToShoppingLists();
-                          setTimeout(() => {}, 200);
+                          // Navegación multiplataforma con Expo Router
+                          router.push('/trabajador/salesTrabajador');
                           Alert.alert('¡Compra realizada!', 'La lista de compra fue registrada y el stock actualizado.');
                         } catch (err) {
                           Alert.alert('Error', err.message || 'No se pudo registrar la venta');

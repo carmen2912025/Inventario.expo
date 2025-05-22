@@ -203,3 +203,24 @@ INSERT INTO Ventas(cliente_id, total) VALUES (3, 149.99);
 INSERT INTO DetalleVenta(venta_id, producto_id, cantidad, precio_unitario) VALUES (2, 2, 1, 49.99);
 INSERT INTO DetalleVenta(venta_id, producto_id, cantidad, precio_unitario) VALUES (2, 3, 1, 19.99);
 INSERT INTO DetalleVenta(venta_id, producto_id, cantidad, precio_unitario) VALUES (3, 4, 1, 129.99);
+
+-- Proveedores de piezas de motos
+DELETE FROM Proveedores;
+INSERT INTO Proveedores(nombre, direccion, telefono, correo) VALUES
+('MotoRepuestos S.A.', 'Av. Motociclistas 101', '700-1111', 'ventas@motorepuestos.com'),
+('Repuestos Rápidos', 'Calle Motor 202', '700-2222', 'info@repuestosrapidos.com'),
+('Mundo Moto', 'Boulevard Biker 303', '700-3333', 'contacto@mundomoto.com');
+
+-- Productos de piezas de motos
+DELETE FROM Productos;
+INSERT INTO Productos(sku, nombre, categoria_id, precio) VALUES
+('MOTO001', 'Bujía NGK', 1, 5.50),
+('MOTO002', 'Filtro de aceite', 1, 8.99),
+('MOTO003', 'Pastillas de freno', 1, 15.00),
+('MOTO004', 'Cadena DID', 1, 35.00),
+('MOTO005', 'Kit de transmisión', 1, 60.00),
+('MOTO006', 'Aceite sintético 10W40', 1, 12.00),
+('MOTO007', 'Llanta delantera 90/90-18', 1, 45.00),
+('MOTO008', 'Llanta trasera 120/80-18', 1, 55.00),
+('MOTO009', 'Amortiguador trasero', 1, 38.00),
+('MOTO010', 'Espejo retrovisor', 1, 7.50);

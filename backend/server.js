@@ -590,6 +590,39 @@ app.get('/auditlog', async (req, res) => {
   }
 });
 
+// Productos más vendidos
+app.get('/top-products', async (req, res) => {
+  // top N productos más vendidos (por cantidad)
+  const limit = parseInt(req.query.limit) || 5;
+  try {
+    const [rows] = await db.query(`
+      SELECT p.id, p.nombre, SUM(dv.cantidad) as total_vendidos, SUM(dv.cantidad * dv.precio_unitario) as total_ingresos
+      FROM DetalleVenta dv
+      JOIN Productos p ON dv.producto_id = p.id
+      GROUP BY p.id, p.nombre
+      ORDER BY total_vendidos DESC
+      LIMIT ?
+    `, [limit]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Resumen de ventas del día actual
+app.get('/sales-today', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT COUNT(*) as total_ventas, IFNULL(SUM(total),0) as monto_total
+      FROM Ventas
+      WHERE DATE(fecha) = CURDATE()
+    `);
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Backend corriendo en http://localhost:${PORT}`);
