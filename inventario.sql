@@ -154,65 +154,17 @@ DO
   GROUP BY DATE(fecha);
 
 -- 8. Datos de prueba mínimos
-INSERT INTO Categorias(nombre) VALUES ('Electrónica');
+-- SOLO piezas y proveedores de motos
+INSERT INTO Categorias(nombre, descripcion) VALUES ('Piezas de Moto', 'Repuestos y accesorios para motocicletas');
 INSERT INTO Ubicaciones(nombre) VALUES ('Almacén Principal');
-INSERT INTO Proveedores(nombre, direccion) VALUES ('Tech Distribuidora', 'Calle Falsa 123');
-INSERT INTO Productos(sku, nombre, categoria_id, precio)
-VALUES ('PROD001', 'Televisor 4K', 1, 899.99);
-INSERT INTO Clientes(nombre) VALUES ('Cliente Prueba');
-INSERT INTO ProveedorProducto(proveedor_id, producto_id, fecha, cantidad, precio_compra)
-VALUES (1, 1, CURDATE(), 10, 700.00);
-INSERT INTO Ventas(cliente_id, total)
-VALUES (1, 999.99);
-INSERT INTO DetalleVenta(venta_id, producto_id, cantidad, precio_unitario)
-VALUES (1, 1, 1, 999.99);
-
--- Datos de prueba adicionales
--- Categorías
-INSERT INTO Categorias(nombre, descripcion) VALUES ('Hogar', 'Artículos para el hogar');
-INSERT INTO Categorias(nombre, descripcion) VALUES ('Deportes', 'Equipos deportivos');
-INSERT INTO Categorias(nombre, descripcion) VALUES ('Oficina', 'Suministros de oficina');
-
--- Ubicaciones
-INSERT INTO Ubicaciones(nombre, direccion) VALUES ('Sucursal Centro', 'Av. Central 456');
-INSERT INTO Ubicaciones(nombre, direccion) VALUES ('Depósito Secundario', 'Calle 2 #45');
-
--- Proveedores
-INSERT INTO Proveedores(nombre, direccion, telefono, correo) VALUES ('Distribuidora Hogar', 'Calle 10 #20', '555-1234', 'hogar@proveedor.com');
-INSERT INTO Proveedores(nombre, direccion, telefono, correo) VALUES ('DeportesMax', 'Av. Deportes 100', '555-5678', 'ventas@deportesmax.com');
-
--- Productos
-INSERT INTO Productos(sku, nombre, categoria_id, precio) VALUES ('PROD002', 'Licuadora', 2, 49.99);
-INSERT INTO Productos(sku, nombre, categoria_id, precio) VALUES ('PROD003', 'Balón de fútbol', 3, 19.99);
-INSERT INTO Productos(sku, nombre, categoria_id, precio) VALUES ('PROD004', 'Silla ergonómica', 4, 129.99);
-
--- Clientes
-INSERT INTO Clientes(nombre, correo, telefono) VALUES ('Ana Pérez', 'ana@mail.com', '555-0001');
-INSERT INTO Clientes(nombre, correo, telefono) VALUES ('Carlos Ruiz', 'carlos@mail.com', '555-0002');
-
--- Compras a proveedores
-INSERT INTO ProveedorProducto(proveedor_id, producto_id, fecha, cantidad, precio_compra) VALUES (2, 2, CURDATE(), 20, 35.00);
-INSERT INTO ProveedorProducto(proveedor_id, producto_id, fecha, cantidad, precio_compra) VALUES (3, 3, CURDATE(), 50, 12.00);
-INSERT INTO ProveedorProducto(proveedor_id, producto_id, fecha, cantidad, precio_compra) VALUES (1, 4, CURDATE(), 5, 100.00);
-
--- Ventas
-INSERT INTO Ventas(cliente_id, total) VALUES (2, 59.98);
-INSERT INTO Ventas(cliente_id, total) VALUES (3, 149.99);
-
--- Detalle de ventas
-INSERT INTO DetalleVenta(venta_id, producto_id, cantidad, precio_unitario) VALUES (2, 2, 1, 49.99);
-INSERT INTO DetalleVenta(venta_id, producto_id, cantidad, precio_unitario) VALUES (2, 3, 1, 19.99);
-INSERT INTO DetalleVenta(venta_id, producto_id, cantidad, precio_unitario) VALUES (3, 4, 1, 129.99);
 
 -- Proveedores de piezas de motos
-DELETE FROM Proveedores;
 INSERT INTO Proveedores(nombre, direccion, telefono, correo) VALUES
 ('MotoRepuestos S.A.', 'Av. Motociclistas 101', '700-1111', 'ventas@motorepuestos.com'),
 ('Repuestos Rápidos', 'Calle Motor 202', '700-2222', 'info@repuestosrapidos.com'),
 ('Mundo Moto', 'Boulevard Biker 303', '700-3333', 'contacto@mundomoto.com');
 
 -- Productos de piezas de motos
-DELETE FROM Productos;
 INSERT INTO Productos(sku, nombre, categoria_id, precio) VALUES
 ('MOTO001', 'Bujía NGK', 1, 5.50),
 ('MOTO002', 'Filtro de aceite', 1, 8.99),
@@ -224,3 +176,16 @@ INSERT INTO Productos(sku, nombre, categoria_id, precio) VALUES
 ('MOTO008', 'Llanta trasera 120/80-18', 1, 55.00),
 ('MOTO009', 'Amortiguador trasero', 1, 38.00),
 ('MOTO010', 'Espejo retrovisor', 1, 7.50);
+
+-- Relación proveedor-producto ejemplo
+INSERT INTO ProveedorProducto(proveedor_id, producto_id, fecha, cantidad, precio_compra) VALUES
+(1, 1, CURDATE(), 100, 4.00),
+(2, 2, CURDATE(), 80, 7.00),
+(3, 3, CURDATE(), 60, 12.00),
+(1, 4, CURDATE(), 40, 30.00),
+(2, 5, CURDATE(), 30, 50.00),
+(3, 6, CURDATE(), 50, 9.00),
+(1, 7, CURDATE(), 20, 35.00),
+(2, 8, CURDATE(), 20, 45.00),
+(3, 9, CURDATE(), 15, 28.00),
+(1, 10, CURDATE(), 25, 5.00);

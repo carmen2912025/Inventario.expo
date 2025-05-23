@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, FlatList, TextInput, Alert, View, Text } from 'react-native';
+import { StyleSheet, FlatList, TextInput, Alert, View, Text, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Button as PaperButton } from 'react-native-paper';
 import { API_BASE_URL } from '../../constants/api';
@@ -16,6 +16,7 @@ export default function ProductsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // Nueva bandera para loading
   // Almacenar el stock local para manipulación en UI
   const [localStock, setLocalStock] = useState({});
 
@@ -162,6 +163,78 @@ export default function ProductsScreen() {
     </View>
   );
 
+  console.log('Render ProductsScreen');
+
+  const finalizarCompra = async () => {
+    console.log('Callback de Alert: Finalizar');
+    setIsProcessing(true);
+    try {
+      // 1. Crear la venta y obtener el ID
+      const saleRes = await fetch(`${API_BASE_URL}/sales`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente_id: 1, // ID fijo o puedes pedirlo al usuario
+          total: cartTotal
+        })
+      });
+      if (!saleRes.ok) {
+        let msg = 'No se pudo registrar la venta';
+        try { msg = (await saleRes.json()).message || msg; } catch {}
+        throw new Error(msg);
+      }
+      const saleData = await saleRes.json();
+      const ventaId = saleData.id || saleData.insertId || saleData.venta_id;
+      if (!ventaId) throw new Error('No se obtuvo el ID de la venta. Respuesta: ' + JSON.stringify(saleData));
+
+      // 2. Registrar los detalles de la venta (uno por producto)
+      for (const p of cart) {
+        const detallesBody = {
+          producto_id: p.id,
+          cantidad: p.quantity,
+          precio_unitario: Number(p.precio)
+        };
+        console.log('Enviando detalle de venta:', detallesBody);
+        const detailsRes = await fetch(`${API_BASE_URL}/sales/${ventaId}/details`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(detallesBody)
+        });
+        if (!detailsRes.ok) {
+          let msg = 'No se pudo registrar el detalle de la venta';
+          try {
+            const errJson = await detailsRes.json();
+            msg = errJson.message || JSON.stringify(errJson) || msg;
+          } catch {}
+          throw new Error(msg);
+        }
+      }
+
+      // 3. Guardar lista de compra en AsyncStorage
+      const stored = await AsyncStorage.getItem('shoppingLists');
+      const lists = stored ? JSON.parse(stored) : [];
+      const newList = {
+        id: Date.now() + Math.floor(Math.random() * 10000),
+        productos: cart,
+        total: cartTotal,
+        paid: false,
+        cancelled: false
+      };
+      await AsyncStorage.setItem('shoppingLists', JSON.stringify([...lists, newList]));
+      setCart([]);
+      setShowCart(false);
+      if (globalThis.refreshShoppingLists) globalThis.refreshShoppingLists();
+      console.log('Antes de redirección');
+      router.replace('/trabajador/salesTrabajador');
+      console.log('Después de redirección');
+      Alert.alert('¡Compra realizada!', 'La lista de compra fue registrada y el stock actualizado.');
+    } catch (err) {
+      Alert.alert('Error', err.message || 'No se pudo registrar la venta');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <View style={{ flex: 1, padding: 20 }}>
       <RoleSwitcher />
@@ -196,51 +269,26 @@ export default function ProductsScreen() {
                 )}
               />
               <Text style={styles.cartTotal}>Total: ${cartTotal.toFixed(2)}</Text>
+              {console.log('Render Botón Finalizar compra')}
               <PaperButton mode="contained" style={{ marginTop: 8 }} onPress={async () => {
-                if (cart.length === 0) return;
-                Alert.alert(
-                  'Confirmar compra',
-                  `¿Deseas finalizar la compra por $${cartTotal.toFixed(2)}?`,
-                  [
-                    { text: 'Cancelar', style: 'cancel' },
-                    {
-                      text: 'Finalizar', style: 'default', onPress: async () => {
-                        try {
-                          const res = await fetch(`${API_BASE_URL}/sales`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              cliente_id: 1, // ID fijo o puedes pedirlo al usuario
-                              productos: cart.map(p => ({ producto_id: p.id, cantidad: p.quantity, precio_unitario: Number(p.precio) }))
-                            })
-                          });
-                          if (!res.ok) throw new Error('No se pudo registrar la venta en el backend');
-                          // Guardar lista de compra en AsyncStorage
-                          const stored = await AsyncStorage.getItem('shoppingLists');
-                          const lists = stored ? JSON.parse(stored) : [];
-                          const newList = {
-                            id: Date.now() + Math.floor(Math.random() * 10000),
-                            productos: cart,
-                            total: cartTotal,
-                            paid: false,
-                            cancelled: false
-                          };
-                          await AsyncStorage.setItem('shoppingLists', JSON.stringify([...lists, newList]));
-                          setCart([]);
-                          setShowCart(false);
-                          if (globalThis.refreshShoppingLists) globalThis.refreshShoppingLists();
-                          // Navegación multiplataforma con Expo Router
-                          router.push('/trabajador/salesTrabajador');
-                          Alert.alert('¡Compra realizada!', 'La lista de compra fue registrada y el stock actualizado.');
-                        } catch (err) {
-                          Alert.alert('Error', err.message || 'No se pudo registrar la venta');
-                        }
+                console.log('Botón Finalizar compra presionado');
+                if (cart.length === 0 || isProcessing) return;
+                if (Platform.OS === 'web') {
+                  await finalizarCompra();
+                } else {
+                  Alert.alert(
+                    'Confirmar compra',
+                    `¿Deseas finalizar la compra por $${cartTotal.toFixed(2)}?`,
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Finalizar', style: 'default', onPress: finalizarCompra
                       }
-                    }
-                  ]
-                );
-              }} disabled={cart.length === 0}>
-                Finalizar compra
+                    ]
+                  );
+                }
+              }} disabled={cart.length === 0 || isProcessing}>
+                {isProcessing ? 'Procesando...' : 'Finalizar compra'}
               </PaperButton>
               <PaperButton mode="outlined" onPress={handleClearCart} style={{ marginTop: 8 }}>Vaciar carrito</PaperButton>
             </>

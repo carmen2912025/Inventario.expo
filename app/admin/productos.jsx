@@ -5,6 +5,7 @@ import { Button as PaperButton } from 'react-native-paper';
 import { API_BASE_URL } from '../../constants/api';
 
 export default function ProductsScreen() {
+  console.log('Render ProductsScreen (admin)');
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -19,6 +20,10 @@ export default function ProductsScreen() {
   const [feedback, setFeedback] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [productStocks, setProductStocks] = useState({});
+  const [editMode, setEditMode] = useState(false);
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [quantity, setQuantity] = useState('');
   // Paginación para FlatList
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -34,9 +39,11 @@ export default function ProductsScreen() {
   }, [products, selectedCategory, searchQuery]);
 
   const fetchProducts = async (reset = false) => {
+    console.log('fetchProducts (admin) llamado', { reset, page });
     try {
       const response = await fetch(`${API_BASE_URL}/products?page=${reset ? 1 : page}&limit=${PAGE_SIZE}`);
       const data = await response.json();
+      console.log('fetchProducts (admin) respuesta:', data);
       if (!Array.isArray(data)) {
         setProducts([]);
         setFeedback('Error al cargar productos');
@@ -44,25 +51,49 @@ export default function ProductsScreen() {
       }
       if (reset) {
         setProducts(data);
+        await fetchStockForProducts(data);
       } else {
         setProducts(prev => [...prev, ...data]);
+        await fetchStockForProducts([...products, ...data]);
       }
       setHasMore(data.length === PAGE_SIZE);
     } catch (error) {
-      console.error(error);
+      console.error('fetchProducts (admin) error:', error);
       setFeedback('Error al cargar productos');
       Alert.alert('Error', 'Failed to fetch products');
     }
   };
 
   const fetchCategories = async () => {
+    console.log('fetchCategories (admin) llamado');
     try {
       const response = await fetch(`${API_BASE_URL}/categories`);
       const data = await response.json();
+      console.log('fetchCategories (admin) respuesta:', data);
       setCategories(data);
     } catch (error) {
+      console.error('fetchCategories (admin) error:', error);
       // ignore for now
     }
+  };
+
+  const fetchStockForProducts = async (productsList) => {
+    const stocks = {};
+    await Promise.all(productsList.map(async (prod) => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/stock/${prod.id}`);
+        const data = await res.json();
+        // Sumar el stock de todas las ubicaciones (si hay varias)
+        let totalStock = 0;
+        if (Array.isArray(data)) {
+          totalStock = data.reduce((sum, s) => sum + (s.cantidad || 0), 0);
+        }
+        stocks[prod.id] = totalStock;
+      } catch {
+        stocks[prod.id] = prod.cantidad || 0; // fallback
+      }
+    }));
+    setProductStocks(stocks);
   };
 
   const filterProducts = () => {
@@ -89,41 +120,15 @@ export default function ProductsScreen() {
     setSearchQuery(text);
   };
 
-  const [selectedExistingProduct, setSelectedExistingProduct] = useState('');
-  const [quantity, setQuantity] = useState('');
-
-  useEffect(() => {
-    if (selectedExistingProduct) {
-      const prod = products.find(p => p.id === selectedExistingProduct);
-      if (prod) {
-        setNewProduct({
-          name: prod.nombre,
-          price: prod.precio.toString(),
-          category: prod.categoria_id,
-          description: prod.descripcion || ''
-        });
-        setQuantity('');
-      }
-    } else {
-      setNewProduct({ name: '', price: '', category: '', description: '' });
-      setQuantity('');
-    }
-  }, [selectedExistingProduct]);
-
   const handleAddProduct = async () => {
     const errors = [];
     if (!quantity || isNaN(quantity) || Number(quantity) <= 0) {
       errors.push('La cantidad es obligatoria y debe ser mayor a 0');
     }
-    if (!selectedExistingProduct) {
-      if (!newProduct.name) errors.push('El nombre es obligatorio');
-      if (!newProduct.price) errors.push('El precio es obligatorio');
-      else if (isNaN(newProduct.price) || Number(newProduct.price) <= 0) errors.push('El precio debe ser un número mayor a 0');
-      if (!newProduct.category) errors.push('Selecciona una categoría');
-    } else {
-      if (!newProduct.price) errors.push('El precio es obligatorio');
-      else if (isNaN(newProduct.price) || Number(newProduct.price) <= 0) errors.push('El precio debe ser un número mayor a 0');
-    }
+    if (!newProduct.name || newProduct.name.trim() === '') errors.push('El nombre es obligatorio');
+    if (!newProduct.price) errors.push('El precio es obligatorio');
+    else if (isNaN(newProduct.price) || Number(newProduct.price) <= 0) errors.push('El precio debe ser un número mayor a 0');
+    if (!newProduct.category || newProduct.category === '' || newProduct.category === 'all') errors.push('Selecciona una categoría');
     if (errors.length > 0) {
       setFeedback(errors.join('\n'));
       Alert.alert('Error', errors.join('\n'));
@@ -132,68 +137,93 @@ export default function ProductsScreen() {
     setSubmitting(true);
     setFeedback('');
     try {
-      if (selectedExistingProduct) {
-        // Actualizar stock y precio (enviar todos los campos requeridos)
-        const prod = products.find(p => p.id === selectedExistingProduct || p.id === Number(selectedExistingProduct));
-        if (!prod) {
-          setFeedback('Producto no encontrado');
-          setTimeout(() => setFeedback(''), 4500);
-          setSubmitting(false);
-          return;
-        }
-        const res = await fetch(`${API_BASE_URL}/products/${selectedExistingProduct}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sku: prod.sku,
-            nombre: prod.nombre,
-            descripcion: prod.descripcion || '',
-            precio: parseFloat(newProduct.price),
-            cantidad: Number(quantity),
-            categoria_id: prod.categoria_id,
-            marca_id: prod.marca_id || null,
-            barcode: prod.barcode || '',
-            fecha_ultima_actualizacion_precio: prod.fecha_ultima_actualizacion_precio || null,
-            fecha_ultima_repo: prod.fecha_ultima_repo || null,
-            imagen: prod.imagen || '',
-            is_active: prod.is_active !== undefined ? prod.is_active : 1
-          })
-        });
-        if (!res.ok) throw new Error('No se pudo actualizar el producto');
-        setModalVisible(false);
-        setFeedback('Producto actualizado correctamente');
-        setTimeout(() => setFeedback(''), 4500);
-        fetchProducts();
-      } else {
-        // Crear producto nuevo
-        const res = await fetch(`${API_BASE_URL}/products`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nombre: newProduct.name,
-            precio: parseFloat(newProduct.price),
-            categoria_id: newProduct.category,
-            descripcion: newProduct.description,
-            cantidad: Number(quantity)
-          })
-        });
-        if (!res.ok) throw new Error('No se pudo agregar el producto');
-        setModalVisible(false);
-        setFeedback('Producto agregado correctamente');
-        fetchProducts();
+      // Crear producto nuevo con barcode y sku automáticos
+      const timestamp = Date.now();
+      const random = Math.floor(Math.random()*10000);
+      const barcode = `BC-${timestamp}-${random}`;
+      const sku = `SKU-${timestamp}-${random}`;
+      const body = {
+        nombre: newProduct.name || '',
+        precio: parseFloat(newProduct.price),
+        categoria_id: newProduct.category,
+        descripcion: newProduct.description,
+        cantidad: Number(quantity),
+        barcode,
+        sku
+      };
+      const res = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        let msg = 'No se pudo agregar el producto';
+        try { msg = (await res.json()).message || msg; } catch {}
+        throw new Error(msg);
       }
+      setModalVisible(false);
+      setFeedback('Producto agregado correctamente');
+      fetchProducts();
       setNewProduct({ name: '', price: '', category: '', description: '' });
       setQuantity('');
-      setSelectedExistingProduct('');
     } catch (error) {
-      Alert.alert('Error', error.message || 'No se pudo agregar/actualizar el producto');
-      setFeedback('No se pudo agregar/actualizar el producto');
+      Alert.alert('Error', error.message || 'No se pudo agregar el producto');
+      setFeedback('No se pudo agregar el producto');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleSaveEdit = async () => {
+    setSubmitting(true);
+    setFeedback('');
+    try {
+      // Buscar el producto original para obtener sku y barcode
+      const original = products.find(p => p.id === editingProductId);
+      if (!original) throw new Error('No se encontró el producto original');
+      const body = {
+        sku: original.sku || `SKU-${editingProductId}`,
+        barcode: original.barcode || `BC-${editingProductId}`,
+        nombre: newProduct.name,
+        precio: parseFloat(newProduct.price),
+        categoria_id: newProduct.category,
+        descripcion: newProduct.description,
+        cantidad: Number(quantity),
+        marca_id: original.marca_id || null,
+        fecha_ultima_actualizacion_precio: original.fecha_ultima_actualizacion_precio || null,
+        fecha_ultima_repo: original.fecha_ultima_repo || null,
+        imagen: original.imagen || '',
+        is_active: original.is_active !== undefined ? original.is_active : 1
+      };
+      const res = await fetch(`${API_BASE_URL}/products/${editingProductId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        let msg = 'No se pudo actualizar el producto';
+        try { msg = (await res.json()).message || msg; } catch {}
+        throw new Error(msg);
+      }
+      setModalVisible(false);
+      setFeedback('Producto actualizado correctamente');
+      setPage(1);
+      await fetchProducts(true);
+      // Recargar stocks reales tras editar
+      await fetchStockForProducts(products);
+      setTimeout(() => setFeedback(''), 4500);
+    } catch (error) {
+      setFeedback('No se pudo actualizar el producto');
+      Alert.alert('Error', error.message || 'No se pudo actualizar el producto');
+    } finally {
+      setSubmitting(false);
+      setEditMode(false);
+      setEditingProductId(null);
+    }
+  };
+
   const handleDeleteProduct = async (id) => {
+    console.log('handleDeleteProduct (admin) llamado', { id });
     Alert.alert(
       'Eliminar producto',
       '¿Estás seguro de que deseas eliminar este producto?',
@@ -203,10 +233,15 @@ export default function ProductsScreen() {
           text: 'Eliminar', style: 'destructive', onPress: async () => {
             try {
               const res = await fetch(`${API_BASE_URL}/products/${id}`, { method: 'DELETE' });
-              if (!res.ok) throw new Error('No se pudo eliminar el producto');
+              if (!res.ok) {
+                let msg = 'No se pudo eliminar el producto';
+                try { msg = (await res.json()).message || msg; } catch {}
+                throw new Error(msg);
+              }
               setFeedback('Producto eliminado correctamente');
               fetchProducts();
             } catch (error) {
+              console.error('handleDeleteProduct (admin) error:', error);
               setFeedback('No se pudo eliminar el producto');
             }
           }
@@ -215,13 +250,34 @@ export default function ProductsScreen() {
     );
   };
 
+  const openEditModal = (product) => {
+    setEditMode(true);
+    setEditingProductId(product.id);
+    setNewProduct({
+      name: product.nombre,
+      price: product.precio.toString(),
+      category: product.categoria_id,
+      description: product.descripcion || ''
+    });
+    setQuantity((productStocks[product.id] !== undefined ? productStocks[product.id] : product.cantidad)?.toString() || '');
+    setModalVisible(true);
+  };
+
   const renderProductItem = ({ item }) => (
     <View style={styles.productItem}>
       <Text style={styles.productName}>{item.nombre}</Text>
       <Text style={styles.productPrice}>${item.precio}</Text>
-      <TouchableOpacity onPress={() => handleDeleteProduct(item.id)} style={{ marginTop: 8, alignSelf: 'flex-end' }}>
-        <Text style={{ color: 'red', fontWeight: 'bold' }}>Eliminar</Text>
-      </TouchableOpacity>
+      <Text style={{ color: '#e17055', fontWeight: 'bold', marginTop: 4 }}>
+        Stock: {productStocks[item.id] !== undefined ? productStocks[item.id] : item.cantidad}
+      </Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+        <TouchableOpacity onPress={() => openEditModal(item)} style={{ marginTop: 8 }}>
+          <Text style={{ color: '#2563eb', fontWeight: 'bold' }}>Editar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => handleDeleteProduct(item.id)} style={{ marginTop: 8 }}>
+          <Text style={{ color: 'red', fontWeight: 'bold' }}>Eliminar</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -288,29 +344,16 @@ export default function ProductsScreen() {
         visible={modalVisible}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => { setModalVisible(false); setEditMode(false); setEditingProductId(null); }}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Nuevo Producto</Text>
-            {/* Nuevo: Selector de producto existente */}
-            <Picker
-              selectedValue={selectedExistingProduct}
-              onValueChange={value => setSelectedExistingProduct(value)}
-              style={styles.input}
-              testID="picker-producto-existente"
-            >
-              <Picker.Item label="Nuevo producto" value="" />
-              {products.map(prod => (
-                <Picker.Item key={prod.id} label={prod.nombre} value={prod.id} />
-              ))}
-            </Picker>
+            <Text style={styles.modalTitle}>{editMode ? 'Editar Producto' : 'Nuevo Producto'}</Text>
             <TextInput
               style={styles.input}
               placeholder="Nombre"
               value={newProduct.name}
               onChangeText={text => setNewProduct({ ...newProduct, name: text })}
-              editable={!selectedExistingProduct}
             />
             <TextInput
               style={styles.input}
@@ -318,14 +361,14 @@ export default function ProductsScreen() {
               value={newProduct.price}
               onChangeText={text => setNewProduct({ ...newProduct, price: text })}
               keyboardType="numeric"
-              // editable siempre (permitir modificar precio)
+              editable={true}
             />
             <Picker
               selectedValue={newProduct.category}
               onValueChange={value => setNewProduct({ ...newProduct, category: value })}
               style={styles.input}
               testID="picker-categoria"
-              enabled={!selectedExistingProduct}
+              enabled={true}
             >
               <Picker.Item label="Selecciona categoría" value="" />
               {categories.map(cat => (
@@ -337,7 +380,7 @@ export default function ProductsScreen() {
               placeholder="Descripción"
               value={newProduct.description}
               onChangeText={text => setNewProduct({ ...newProduct, description: text })}
-              editable={!selectedExistingProduct}
+              editable={true}
             />
             <TextInput
               style={styles.input}
@@ -346,12 +389,17 @@ export default function ProductsScreen() {
               onChangeText={setQuantity}
               keyboardType="numeric"
             />
-            {/* SUGERENCIA: Aquí podrías agregar un campo para modificar solo el stock si es producto existente */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
-              <PaperButton mode="contained" onPress={handleAddProduct} disabled={submitting}>
-                {submitting ? 'Guardando...' : 'Guardar'}
-              </PaperButton>
-              <PaperButton mode="outlined" onPress={() => setModalVisible(false)} disabled={submitting}>
+              {editMode ? (
+                <PaperButton mode="contained" onPress={handleSaveEdit} disabled={submitting}>
+                  {submitting ? 'Guardando...' : 'Guardar Cambios'}
+                </PaperButton>
+              ) : (
+                <PaperButton mode="contained" onPress={handleAddProduct} disabled={submitting}>
+                  {submitting ? 'Guardando...' : 'Guardar'}
+                </PaperButton>
+              )}
+              <PaperButton mode="outlined" onPress={() => { setModalVisible(false); setEditMode(false); setEditingProductId(null); }} disabled={submitting}>
                 Cancelar
               </PaperButton>
             </View>

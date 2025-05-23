@@ -24,6 +24,7 @@ export default function AdminTabLayout() {
       <Tabs.Screen name="auditlog" options={{ title: 'Auditoría', tabBarIcon: ({ color }) => <TabBarIcon name="file-text" color={color} /> }} />
       <Tabs.Screen name="pricehistory" options={{ title: 'Historial Precios', tabBarIcon: ({ color }) => <TabBarIcon name="history" color={color} /> }} />
       <Tabs.Screen name="usersAdmin" options={{ title: 'Usuarios', tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} /> }} />
+      <Tabs.Screen name="ventasDiaAdmin" options={{ title: 'Ventas del Día', tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} /> }} />
     </Tabs>
   );
 }

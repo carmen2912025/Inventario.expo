@@ -623,6 +623,25 @@ app.get('/sales-today', async (req, res) => {
   }
 });
 
+// Desglose de productos vendidos en el día
+app.get('/sales-today-details', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT p.nombre, SUM(dv.cantidad) as cantidad, SUM(dv.cantidad * dv.precio_unitario) as total
+      FROM DetalleVenta dv
+      JOIN Ventas v ON dv.venta_id = v.id
+      JOIN Productos p ON dv.producto_id = p.id
+      WHERE DATE(v.fecha) = CURDATE()
+      GROUP BY p.id, p.nombre
+      ORDER BY cantidad DESC
+    `);
+    const total = rows.reduce((acc, r) => acc + Number(r.total), 0);
+    res.json({ detalle: rows, total });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Backend corriendo en http://localhost:${PORT}`);
