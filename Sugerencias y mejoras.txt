@@ -1,0 +1,31 @@
+Sugerencias de Cambios y Mejoras
+1. UI/UX y Navegación
+Moderniza la UI: Usa componentes de diseño modernos (ej. React Native Paper, NativeBase, o tu propio sistema de diseño) para botones, inputs, listas y tarjetas.
+Consistencia visual: Unifica paleta de colores, tipografías y espaciados en todas las pantallas.
+Feedback visual: Añade loaders/spinners y mensajes de éxito/error en todas las operaciones (fetch, add, delete, update).
+Empty states: Muestra ilustraciones o mensajes amigables cuando no hay datos (ej. sin productos, sin ventas).
+2. Funcionalidad y Experiencia
+CRUD completo: Asegúrate de que todas las entidades principales (productos, proveedores, categorías) tengan operaciones CRUD desde la UI.
+Búsqueda y filtros avanzados: Mejora la búsqueda de productos con filtros por categoría, proveedor, precio, stock, etc.
+Paginación y rendimiento: Implementa paginación en listas grandes usando FlatList con onEndReached y soporte en el backend.
+Gestión de stock: Permite ver y ajustar el stock desde la app, mostrando movimientos recientes y alertas de bajo stock.
+Historial de precios: Muestra el historial de cambios de precio de cada producto (ya tienes endpoint y tabla).
+Reportes y estadísticas: Agrega gráficos (ej. con Victory Native o react-native-chart-kit) para ventas diarias, productos más vendidos, etc.
+3. Backend y Base de Datos
+Endpoints faltantes: Agrega endpoints para actualizar y eliminar proveedores, clientes y ubicaciones si no existen.
+Validaciones más robustas: Mejora la validación de datos en el backend (ej. evitar duplicados, validar emails, etc).
+Auditoría: Expón logs de auditoría en la UI para admins (ya tienes la tabla AuditLog).
+Integridad referencial: Asegúrate de que los deletes en cascada o con SET NULL funcionen correctamente en la base de datos.
+4. Código y Arquitectura
+Separación de lógica: Extrae la lógica de fetch y manipulación de datos a hooks personalizados (useProducts, useProviders, etc).
+Reutilización de componentes: Crea componentes reutilizables para listas, formularios y modales.
+Tipado estricto: Usa los tipos de dbTypes.ts en todo el frontend para mayor seguridad y autocompletado.
+Manejo de errores global: Implementa un sistema centralizado para mostrar errores y notificaciones.
+5. Accesibilidad y Escalabilidad
+Accesibilidad: Usa roles y etiquetas accesibles en los componentes, y asegúrate de que la app sea usable con lectores de pantalla.
+Escalabilidad: Prepara la arquitectura para soportar más roles, módulos o integraciones futuras (por ejemplo, compras, inventario multi-sucursal).
+6. Extras y Detalles
+Soporte para imágenes: Permite subir y mostrar imágenes de productos.
+Exportar datos: Agrega opción para exportar reportes a CSV o PDF.
+Soporte offline: Considera usar almacenamiento local (AsyncStorage) para operaciones offline y sincronización posterior.
+Documentación: Mantén el README actualizado con ejemplos de uso, endpoints y capturas de pantalla.

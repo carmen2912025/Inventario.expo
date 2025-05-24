@@ -1,17 +1,34 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, FlatList, TextInput, Alert, View, Text, Platform } from 'react-native';
+import { StyleSheet, FlatList, TextInput, Alert, View, Text, Platform, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Button as PaperButton } from 'react-native-paper';
 import { API_BASE_URL } from '../../constants/api';
 import RoleSwitcher from '../../components/RoleSwitcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import { useProducts } from '../../hooks/useProducts';
+import { useCategories } from '../../hooks/useCategories';
+import ListContainer from '../../components/ListContainer';
+import ModalForm from '../../components/ModalForm';
+
+const PAGE_SIZE = 20;
 
 export default function ProductsScreen() {
   const router = useRouter();
-  const [products, setProducts] = useState([]);
+  // Usa hooks para productos y categorías
+  const {
+    products,
+    loading,
+    error,
+    reload,
+  } = useProducts();
+  const {
+    categories,
+    loading: loadingCategories,
+    error: errorCategories,
+    reload: reloadCategories,
+  } = useCategories();
   const [filteredProducts, setFilteredProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
@@ -19,11 +36,27 @@ export default function ProductsScreen() {
   const [isProcessing, setIsProcessing] = useState(false); // Nueva bandera para loading
   // Almacenar el stock local para manipulación en UI
   const [localStock, setLocalStock] = useState({});
-
-  useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-  }, []);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    price: '',
+    category: '',
+    description: '',
+  });
+  const [quantity, setQuantity] = useState('');
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategory, setNewCategory] = useState({ nombre: '', descripcion: '' });
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [displayedProducts, setDisplayedProducts] = useState([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [onlyLowStock, setOnlyLowStock] = useState(false);
+  const LOW_STOCK_THRESHOLD = 5;
 
   useEffect(() => {
     filterProducts();
@@ -38,31 +71,19 @@ export default function ProductsScreen() {
     }
   }, [products]);
 
-  const fetchProducts = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/products`);
-      const data = await response.json();
-      if (!Array.isArray(data)) {
-        setProducts([]);
-        setFilteredProducts([]);
-        return;
-      }
-      setProducts(data);
-    } catch (error) {
-      setProducts([]);
-      setFilteredProducts([]);
-    }
-  };
+  useEffect(() => {
+    setPage(1);
+    setDisplayedProducts(filteredProducts.slice(0, PAGE_SIZE));
+  }, [filteredProducts]);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/categories`);
-      const data = await response.json();
-      setCategories(data);
-    } catch (error) {
-      setCategories([]);
-    }
-  };
+  useEffect(() => {
+    if (page === 1) return;
+    setLoadingMore(true);
+    setTimeout(() => {
+      setDisplayedProducts(filteredProducts.slice(0, PAGE_SIZE * page));
+      setLoadingMore(false);
+    }, 400);
+  }, [page, filteredProducts]);
 
   const filterProducts = () => {
     let filtered = products;
@@ -73,6 +94,18 @@ export default function ProductsScreen() {
       filtered = filtered.filter((product) =>
         product.nombre.toLowerCase().includes(searchQuery.toLowerCase())
       );
+    }
+    if (priceMin) {
+      filtered = filtered.filter((product) => Number(product.precio) >= Number(priceMin));
+    }
+    if (priceMax) {
+      filtered = filtered.filter((product) => Number(product.precio) <= Number(priceMax));
+    }
+    if (onlyLowStock) {
+      filtered = filtered.filter((product) => {
+        const stock = localStock[product.id] !== undefined ? localStock[product.id] : product.cantidad;
+        return stock <= LOW_STOCK_THRESHOLD;
+      });
     }
     setFilteredProducts(filtered);
   };
@@ -149,6 +182,9 @@ export default function ProductsScreen() {
 
   const renderProductItem = ({ item }) => (
     <View style={styles.card}>
+      {item.imagen ? (
+        <Image source={{ uri: item.imagen.startsWith('data:') ? item.imagen : `data:image/jpeg;base64,${item.imagen}` }} style={{ width: 60, height: 45, borderRadius: 6, marginBottom: 8 }} />
+      ) : null}
       <Text style={styles.title}>{item.nombre}</Text>
       <Text style={styles.price}>${item.precio}</Text>
       <Text style={styles.stock}>Stock: {localStock[item.id] ?? item.cantidad}</Text>
@@ -169,47 +205,26 @@ export default function ProductsScreen() {
     console.log('Callback de Alert: Finalizar');
     setIsProcessing(true);
     try {
-      // 1. Crear la venta y obtener el ID
-      const saleRes = await fetch(`${API_BASE_URL}/sales`, {
+      // Usar endpoint atómico /sales/full
+      const detalles = cart.map((p) => ({
+        producto_id: p.id,
+        cantidad: p.quantity,
+        precio_unitario: Number(p.precio)
+      }));
+      const saleRes = await fetch(`${API_BASE_URL}/sales/full`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cliente_id: 1, // ID fijo o puedes pedirlo al usuario
-          total: cartTotal
+          total: cartTotal,
+          detalles
         })
       });
       if (!saleRes.ok) {
         let msg = 'No se pudo registrar la venta';
-        try { msg = (await saleRes.json()).message || msg; } catch {}
+        try { msg = (await saleRes.json()).error || msg; } catch {}
         throw new Error(msg);
       }
-      const saleData = await saleRes.json();
-      const ventaId = saleData.id || saleData.insertId || saleData.venta_id;
-      if (!ventaId) throw new Error('No se obtuvo el ID de la venta. Respuesta: ' + JSON.stringify(saleData));
-
-      // 2. Registrar los detalles de la venta (uno por producto)
-      for (const p of cart) {
-        const detallesBody = {
-          producto_id: p.id,
-          cantidad: p.quantity,
-          precio_unitario: Number(p.precio)
-        };
-        console.log('Enviando detalle de venta:', detallesBody);
-        const detailsRes = await fetch(`${API_BASE_URL}/sales/${ventaId}/details`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(detallesBody)
-        });
-        if (!detailsRes.ok) {
-          let msg = 'No se pudo registrar el detalle de la venta';
-          try {
-            const errJson = await detailsRes.json();
-            msg = errJson.message || JSON.stringify(errJson) || msg;
-          } catch {}
-          throw new Error(msg);
-        }
-      }
-
       // 3. Guardar lista de compra en AsyncStorage
       const stored = await AsyncStorage.getItem('shoppingLists');
       const lists = stored ? JSON.parse(stored) : [];
@@ -232,6 +247,105 @@ export default function ProductsScreen() {
       Alert.alert('Error', err.message || 'No se pudo registrar la venta');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleOpenModal = (product) => {
+    if (product) {
+      setNewProduct({
+        id: product.id,
+        name: product.nombre,
+        price: product.precio.toString(),
+        category: product.categoria_id,
+        description: product.descripcion,
+      });
+      setEditMode(true);
+    } else {
+      setNewProduct({
+        name: '',
+        price: '',
+        category: '',
+        description: '',
+      });
+      setEditMode(false);
+    }
+    setModalVisible(true);
+  };
+
+  const handleAddProduct = async () => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: newProduct.name,
+          precio: parseFloat(newProduct.price),
+          categoria_id: newProduct.category,
+          descripcion: newProduct.description,
+          cantidad: parseInt(quantity),
+        }),
+      });
+      if (!res.ok) {
+        let msg = 'Error al agregar producto';
+        try { msg = (await res.json()).error || msg; } catch {}
+        throw new Error(msg);
+      }
+      Alert.alert('Éxito', 'Producto agregado correctamente');
+      setModalVisible(false);
+      reload();
+    } catch (err) {
+      Alert.alert('Error', err.message || 'No se pudo agregar el producto');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/products/${newProduct.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: newProduct.name,
+          precio: parseFloat(newProduct.price),
+          categoria_id: newProduct.category,
+          descripcion: newProduct.description,
+          cantidad: parseInt(quantity),
+        }),
+      });
+      if (!res.ok) {
+        let msg = 'Error al editar producto';
+        try { msg = (await res.json()).error || msg; } catch {}
+        throw new Error(msg);
+      }
+      Alert.alert('Éxito', 'Producto editado correctamente');
+      setModalVisible(false);
+      reload();
+    } catch (err) {
+      Alert.alert('Error', err.message || 'No se pudo editar el producto');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const addCategory = async (categoryData) => {
+    const res = await fetch(`${API_BASE_URL}/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(categoryData),
+    });
+    if (!res.ok) {
+      let msg = 'Error al crear categoría';
+      try { msg = (await res.json()).error || msg; } catch {}
+      throw new Error(msg);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (displayedProducts.length < filteredProducts.length && !loadingMore) {
+      setPage(prev => prev + 1);
     }
   };
 
@@ -295,12 +409,54 @@ export default function ProductsScreen() {
           )}
         </View>
       )}
-      <TextInput
-        style={styles.searchBar}
-        placeholder="Buscar productos..."
-        value={searchQuery}
-        onChangeText={handleSearch}
-      />
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <TextInput
+          style={[styles.searchBar, { flex: 1 }]}
+          placeholder="Buscar productos..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        <TouchableOpacity onPress={() => setShowFilters(f => !f)} style={{ marginLeft: 8, padding: 8, backgroundColor: '#e0e7ef', borderRadius: 8 }}>
+          <Text style={{ color: '#2563eb', fontWeight: 'bold' }}>{showFilters ? 'Ocultar filtros' : 'Filtros'}</Text>
+        </TouchableOpacity>
+      </View>
+      {showFilters && (
+        <View style={{ backgroundColor: '#f1f5f9', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+          <Text style={{ fontWeight: 'bold', marginBottom: 4, color: '#0e7490' }}>Filtros avanzados</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+            <Picker
+              selectedValue={selectedCategory}
+              onValueChange={handleCategoryChange}
+              style={[styles.input, { flex: 1 }]}
+            >
+              <Picker.Item label="Todas las categorías" value="all" />
+              {categories.map(cat => (
+                <Picker.Item key={cat.id} label={cat.nombre} value={cat.id} />
+              ))}
+            </Picker>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Precio mínimo"
+              value={priceMin}
+              onChangeText={setPriceMin}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Precio máximo"
+              value={priceMax}
+              onChangeText={setPriceMax}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity onPress={() => setOnlyLowStock(v => !v)} style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: '#2563eb', backgroundColor: onlyLowStock ? '#2563eb' : '#fff', marginRight: 6 }} />
+              <Text style={{ color: '#2563eb' }}>Solo stock bajo (≤ {LOW_STOCK_THRESHOLD})</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       <Picker
         selectedValue={selectedCategory}
         onValueChange={handleCategoryChange}
@@ -311,100 +467,212 @@ export default function ProductsScreen() {
           <Picker.Item key={cat.id} label={cat.nombre} value={cat.id} />
         ))}
       </Picker>
-      <FlatList
-        data={filteredProducts}
-        keyExtractor={(item) => item.id.toString()}
+      <ListContainer
+        data={displayedProducts}
         renderItem={renderProductItem}
+        keyExtractor={(item) => item.id.toString()}
+        loading={loading}
+        error={error}
+        emptyText="Sin productos"
+        style={styles.productList}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
       />
+      {loadingMore && (
+        <ActivityIndicator size="small" color="#2563eb" style={{ marginVertical: 12 }} />
+      )}
+      <PaperButton
+        mode="contained"
+        onPress={() => handleOpenModal(null)}
+        style={{ marginTop: 10 }}
+      >
+        Nuevo Producto
+      </PaperButton>
+      <ModalForm
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        title={editMode ? 'Editar Producto' : 'Nuevo Producto'}
+        actions={[
+          <PaperButton mode="contained" onPress={editMode ? handleSaveEdit : handleAddProduct} disabled={submitting} key="save">
+            {submitting ? 'Guardando...' : editMode ? 'Guardar Cambios' : 'Guardar'}
+          </PaperButton>
+        ]}
+      >
+        <TextInput
+          style={styles.input}
+          placeholder="Nombre"
+          value={newProduct.name}
+          onChangeText={text => setNewProduct({ ...newProduct, name: text })}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Precio"
+          value={newProduct.price}
+          onChangeText={text => setNewProduct({ ...newProduct, price: text })}
+          keyboardType="numeric"
+          editable={true}
+        />
+        <Picker
+          selectedValue={newProduct.category}
+          onValueChange={value => {
+            if (value === '__new__') {
+              setShowCategoryModal(true);
+            } else {
+              setNewProduct({ ...newProduct, category: value });
+            }
+          }}
+          style={styles.input}
+          testID="picker-categoria"
+          enabled={true}
+        >
+          <Picker.Item label="Selecciona categoría" value="" />
+          {categories.map(cat => (
+            <Picker.Item key={cat.id} label={cat.nombre} value={cat.id} />
+          ))}
+          <Picker.Item label="Nueva categoría..." value="__new__" />
+        </Picker>
+        <TextInput
+          style={styles.input}
+          placeholder="Descripción"
+          value={newProduct.description}
+          onChangeText={text => setNewProduct({ ...newProduct, description: text })}
+          editable={true}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Cantidad"
+          value={quantity}
+          onChangeText={setQuantity}
+          keyboardType="numeric"
+        />
+      </ModalForm>
+      <ModalForm
+        visible={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+        title="Nueva Categoría"
+        actions={[
+          <PaperButton
+            mode="contained"
+            onPress={async () => {
+              if (!newCategory.nombre.trim()) {
+                Alert.alert('Error', 'El nombre es obligatorio');
+                return;
+              }
+              setCategorySubmitting(true);
+              try {
+                await addCategory({ nombre: newCategory.nombre, descripcion: newCategory.descripcion });
+                await reloadCategories();
+                // Buscar la nueva categoría por nombre (único)
+                const cat = categories.find(c => c.nombre === newCategory.nombre);
+                if (cat) setNewProduct(p => ({ ...p, category: cat.id }));
+                setShowCategoryModal(false);
+                setNewCategory({ nombre: '', descripcion: '' });
+              } catch (e) {
+                Alert.alert('Error', 'No se pudo crear la categoría');
+              } finally {
+                setCategorySubmitting(false);
+              }
+            }}
+            disabled={categorySubmitting}
+            key="saveCat"
+          >
+            {categorySubmitting ? 'Guardando...' : 'Guardar'}
+          </PaperButton>
+        ]}
+      >
+        <TextInput
+          style={styles.input}
+          placeholder="Nombre de la categoría"
+          value={newCategory.nombre}
+          onChangeText={text => setNewCategory({ ...newCategory, nombre: text })}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Descripción"
+          value={newCategory.descripcion}
+          onChangeText={text => setNewCategory({ ...newCategory, descripcion: text })}
+        />
+      </ModalForm>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#f9fafb',
+  },
   searchBar: {
     height: 40,
-    borderColor: 'gray',
+    borderColor: '#e5e7eb',
     borderWidth: 1,
-    marginBottom: 10,
-    paddingHorizontal: 10,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    backgroundColor: '#fff',
+    fontFamily: 'SpaceMono',
   },
   picker: {
     height: 50,
     width: '100%',
-    marginBottom: 10,
+    marginBottom: 16,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  productList: {
+    paddingBottom: 16,
   },
   card: {
     backgroundColor: '#fff',
     borderRadius: 8,
-    elevation: 3,
-    marginBottom: 10,
-    padding: 10,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 1,
+    borderColor: '#e5e7eb',
+    borderWidth: 1,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
+    color: '#2563eb',
+    fontFamily: 'SpaceMono',
   },
   price: {
-    fontSize: 16,
-    color: 'green',
-  },
-  // Agregar estilo para mostrar stock
-  stock: {
     fontSize: 14,
-    color: '#e17055',
-    marginBottom: 4,
+    color: '#0e7490',
+    fontFamily: 'SpaceMono',
   },
-  button: {
-    marginTop: 10,
-  },
-  cartContainer: {
-    backgroundColor: '#f9fafb',
+  addButton: {
+    marginTop: 16,
+    backgroundColor: '#2563eb',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 16,
-    elevation: 2,
-  },
-  cartTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#2563eb',
-  },
-  cartItem: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-    backgroundColor: '#fff',
-    borderRadius: 6,
-    padding: 8,
-    elevation: 1,
   },
-  cartItemName: {
-    flex: 2,
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  cartItemPrice: {
-    flex: 1,
-    fontSize: 14,
-    color: '#888',
-  },
-  cartQtyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  cartQty: {
-    marginHorizontal: 8,
-    fontSize: 15,
-  },
-  cartTotal: {
+  addButtonText: {
+    color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
-    marginTop: 8,
-    color: '#2563eb',
-    textAlign: 'right',
+    fontFamily: 'SpaceMono',
+  },
+  input: {
+    height: 40,
+    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+    fontFamily: 'SpaceMono',
+  },
+  feedback: {
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 8,
+    textAlign: 'center',
   },
 });

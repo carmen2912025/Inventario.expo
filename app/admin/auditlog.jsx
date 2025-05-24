@@ -6,7 +6,7 @@ import RoleSwitcher from '../../components/RoleSwitcher';
 export default function AuditLogScreen() {
   const [logs, setLogs] = useState([]);
   useEffect(() => {
-    fetch(`${API_BASE_URL}/audit-log`)
+    fetch(`${API_BASE_URL}/auditlog`)
       .then(res => res.json())
       .then(setLogs);
   }, []);
@@ -20,8 +20,9 @@ export default function AuditLogScreen() {
         keyExtractor={item => item.id?.toString()}
         renderItem={({ item }) => (
           <View style={styles.item}>
-            <Text style={styles.text}>{item.descripcion}</Text>
-            <Text style={styles.date}>{item.fecha}</Text>
+            <Text style={styles.text}>{item.entity} #{item.entity_id} - {item.action}</Text>
+            <Text style={styles.text}>{item.changes}</Text>
+            <Text style={styles.date}>{item.changed_at}</Text>
           </View>
         )}
         style={{ width: '100%', marginTop: 20 }}

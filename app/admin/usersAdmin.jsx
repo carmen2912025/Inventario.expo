@@ -252,14 +252,14 @@ export default function UsersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f3f4f6', padding: 16 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 16, color: '#0e7490' },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 16, color: '#0e7490', fontFamily: 'SpaceMono' },
   form: { marginBottom: 20 },
-  input: { backgroundColor: '#fff', borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e0e7ef' },
+  input: { backgroundColor: '#fff', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#e0e7ef', fontFamily: 'SpaceMono' },
   addBtn: { backgroundColor: '#0e7490', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 8 },
-  addBtnText: { color: '#fff', fontWeight: 'bold' },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', elevation: 2 },
-  name: { fontSize: 18, fontWeight: 'bold', color: '#0e7490' },
-  info: { fontSize: 14, color: '#334155' },
-  deleteBtn: { color: '#ef4444', fontWeight: 'bold', marginLeft: 16 },
+  addBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16, fontFamily: 'SpaceMono' },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', elevation: 2, borderColor: '#e5e7eb', borderWidth: 1 },
+  name: { fontSize: 18, fontWeight: 'bold', color: '#0e7490', fontFamily: 'SpaceMono' },
+  info: { fontSize: 14, color: '#334155', fontFamily: 'SpaceMono' },
+  deleteBtn: { color: '#ef4444', fontWeight: 'bold', marginLeft: 16, fontFamily: 'SpaceMono' },
   snackbar: { position: 'absolute', bottom: 24, left: 24, right: 24, backgroundColor: '#0e7490', padding: 16, borderRadius: 8, alignItems: 'center', zIndex: 10 },
 });

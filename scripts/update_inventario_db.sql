@@ -21,7 +21,18 @@ CREATE TABLE IF NOT EXISTS proveedores (
   direccion VARCHAR(255),
   telefono VARCHAR(50),
   correo VARCHAR(100),
-  is_active TINYINT(1) DEFAULT 1
+  is_active TINYINT(1) DEFAULT 1,
+  UNIQUE KEY unique_proveedor_correo (correo),
+  UNIQUE KEY unique_proveedor_nombre (nombre)
+);
+
+CREATE TABLE IF NOT EXISTS clientes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL,
+  correo VARCHAR(100),
+  telefono VARCHAR(50),
+  UNIQUE KEY unique_cliente_correo (correo),
+  UNIQUE KEY unique_cliente_nombre (nombre)
 );
 
 CREATE TABLE IF NOT EXISTS productos (
@@ -37,7 +48,16 @@ CREATE TABLE IF NOT EXISTS productos (
   fecha_ultima_repo DATE,
   imagen VARCHAR(255),
   is_active TINYINT(1) DEFAULT 1,
-  FOREIGN KEY (categoria_id) REFERENCES categorias(id)
+  FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE SET NULL
 );
+
+ALTER TABLE productos
+  ADD CONSTRAINT fk_producto_categoria FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE SET NULL;
+
+ALTER TABLE productos
+  ADD CONSTRAINT fk_producto_barcode UNIQUE (barcode);
+
+ALTER TABLE productos
+  ADD CONSTRAINT fk_producto_sku UNIQUE (sku);
 
 -- Agregar/ajustar tablas adicionales según necesidades del proyecto

@@ -250,21 +250,37 @@ DELIMITER ;
 -- -----------------------------------------------------------
 -- 6. VISTA MATERIALIZADA / EVENTO (SIN CAMBIOS)
 -- -----------------------------------------------------------
+DROP TABLE IF EXISTS ResumenVentasDiarias;
 CREATE TABLE ResumenVentasDiarias (
     dia DATE PRIMARY KEY,
     total_ventas INT,
-    monto_total DECIMAL(12,2)
+    monto_total DECIMAL(12,2),
+    total_productos INT
 );
 
 SET GLOBAL event_scheduler = ON;
 
+DROP EVENT IF EXISTS evt_refrescar_resumen_ventas;
 CREATE EVENT IF NOT EXISTS evt_refrescar_resumen_ventas
 ON SCHEDULE EVERY 1 DAY STARTS CURRENT_TIMESTAMP + INTERVAL 1 DAY
 DO
-  REPLACE INTO ResumenVentasDiarias (dia, total_ventas, monto_total)
-  SELECT DATE(fecha), COUNT(*), SUM(total)
-  FROM Ventas
-  GROUP BY DATE(fecha);
+  REPLACE INTO ResumenVentasDiarias (dia, total_ventas, monto_total, total_productos)
+  SELECT
+    d.dia,
+    d.total_ventas,
+    d.monto_total,
+    IFNULL(p.total_productos, 0)
+  FROM (
+    SELECT DATE(fecha) AS dia, COUNT(*) AS total_ventas, SUM(total) AS monto_total
+    FROM Ventas
+    GROUP BY DATE(fecha)
+  ) d
+  LEFT JOIN (
+    SELECT DATE(v.fecha) AS dia, SUM(dv.cantidad) AS total_productos
+    FROM DetalleVenta dv
+    JOIN Ventas v ON dv.venta_id = v.id
+    GROUP BY DATE(v.fecha)
+  ) p ON d.dia = p.dia;
 
 -- -----------------------------------------------------------
 -- 7. AUDITORÍA (SIN CAMBIOS)

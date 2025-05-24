@@ -224,6 +224,9 @@ app.post('/providers', async (req, res) => {
   });
   if (error) return res.status(400).json({ error });
   try {
+    // Verificar duplicados
+    const [dupes] = await db.query('SELECT id FROM Proveedores WHERE correo = ? OR nombre = ?', [correo, nombre]);
+    if (dupes.length > 0) return res.status(409).json({ error: 'Proveedor ya existe con ese correo o nombre.' });
     const [result] = await db.query('INSERT INTO Proveedores (nombre, direccion, telefono, correo) VALUES (?, ?, ?, ?)', [nombre, direccion, telefono, correo]);
     res.json({ id: result.insertId, nombre, direccion, telefono, correo });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -254,6 +257,9 @@ app.post('/clients', async (req, res) => {
   });
   if (error) return res.status(400).json({ error });
   try {
+    // Verificar duplicados
+    const [dupes] = await db.query('SELECT id FROM Clientes WHERE correo = ? OR nombre = ?', [correo, nombre]);
+    if (dupes.length > 0) return res.status(409).json({ error: 'Cliente ya existe con ese correo o nombre.' });
     const [result] = await db.query('INSERT INTO Clientes (nombre, correo, telefono) VALUES (?, ?, ?)', [nombre, correo, telefono]);
     res.json({ id: result.insertId, nombre, correo, telefono });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -637,6 +643,98 @@ app.get('/sales-today-details', async (req, res) => {
     `);
     const total = rows.reduce((acc, r) => acc + Number(r.total), 0);
     res.json({ detalle: rows, total });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint atómico para crear venta y detalles en una sola llamada
+app.post('/sales/full', async (req, res) => {
+  const { cliente_id, total, detalles } = req.body;
+  // Validación básica
+  if (!Array.isArray(detalles) || detalles.length === 0) {
+    return res.status(400).json({ error: 'El array de detalles es obligatorio y no puede estar vacío.' });
+  }
+  const ventaError = validateFields({ cliente_id, total }, {
+    cliente_id: { required: true, type: 'number', min: 1 },
+    total: { required: true, type: 'number', min: 0 },
+  });
+  if (ventaError) return res.status(400).json({ error: ventaError });
+  for (const d of detalles) {
+    const detError = validateFields(d, {
+      producto_id: { required: true, type: 'number', min: 1 },
+      cantidad: { required: true, type: 'number', min: 1 },
+      precio_unitario: { required: true, type: 'number', min: 0 },
+    });
+    if (detError) return res.status(400).json({ error: `Detalle inválido: ${detError}` });
+  }
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    // 1. Insertar venta
+    const [ventaRes] = await conn.query('INSERT INTO Ventas (cliente_id, total) VALUES (?, ?)', [cliente_id, total]);
+    const venta_id = ventaRes.insertId;
+    // 2. Insertar detalles
+    for (const d of detalles) {
+      await conn.query('INSERT INTO DetalleVenta (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)', [venta_id, d.producto_id, d.cantidad, d.precio_unitario]);
+    }
+    await conn.commit();
+    res.json({ id: venta_id, cliente_id, total, detalles });
+  } catch (err) {
+    await conn.rollback();
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
+// Endpoint para listar ventas del día con detalles por venta
+app.get('/sales-today-list', async (req, res) => {
+  try {
+    // Obtener todas las ventas de hoy
+    const [ventas] = await db.query(`
+      SELECT v.id, v.fecha, v.total, c.nombre as cliente
+      FROM Ventas v
+      LEFT JOIN Clientes c ON v.cliente_id = c.id
+      WHERE DATE(v.fecha) = CURDATE()
+      ORDER BY v.fecha DESC
+    `);
+    if (ventas.length === 0) return res.json([]);
+    // Obtener detalles de todas las ventas de hoy
+    const ventaIds = ventas.map(v => v.id);
+    const [detalles] = await db.query(`
+      SELECT dv.venta_id, p.nombre, dv.cantidad, dv.precio_unitario
+      FROM DetalleVenta dv
+      JOIN Productos p ON dv.producto_id = p.id
+      WHERE dv.venta_id IN (${ventaIds.map(() => '?').join(',')})
+      ORDER BY dv.venta_id DESC
+    `, ventaIds);
+    // Agrupar detalles por venta
+    const detallesPorVenta = {};
+    detalles.forEach(d => {
+      if (!detallesPorVenta[d.venta_id]) detallesPorVenta[d.venta_id] = [];
+      detallesPorVenta[d.venta_id].push({ nombre: d.nombre, cantidad: d.cantidad, precio_unitario: d.precio_unitario });
+    });
+    // Unir ventas con sus detalles
+    const resultado = ventas.map(v => ({
+      ...v,
+      detalles: detallesPorVenta[v.id] || []
+    }));
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- HISTORIAL DE PRECIOS ---
+app.get('/products/:id/price-history', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await db.query(
+      'SELECT id, precio, fecha FROM HistorialPrecios WHERE producto_id = ? ORDER BY fecha DESC',
+      [id]
+    );
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

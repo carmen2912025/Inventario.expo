@@ -1,30 +1,32 @@
 import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Tabs } from 'expo-router';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { createDrawerNavigator } from '@react-navigation/drawer';
+import ProductosScreen from './productos';
+import ProvidersScreen from './providers';
+import SalesAdminScreen from './salesAdmin';
+import StatisticsAdminScreen from './statisticsAdmin';
+import AuditlogScreen from './auditlog';
+import PricehistoryScreen from './pricehistory';
+import UsersAdminScreen from './usersAdmin';
+import VentasDiaAdminScreen from './ventasDiaAdmin';
 
-function TabBarIcon(props) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
-}
+const Drawer = createDrawerNavigator();
 
-export default function AdminTabLayout() {
-  const colorScheme = useColorScheme();
+export default function AdminDrawerLayout() {
   return (
-    <Tabs
+    <Drawer.Navigator initialRouteName="productos"
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: useClientOnlyValue(false, true),
-      }}>
-      <Tabs.Screen name="productos" options={{ title: 'Productos', tabBarIcon: ({ color }) => <TabBarIcon name="archive" color={color} /> }} />
-      <Tabs.Screen name="providers" options={{ title: 'Proveedores', tabBarIcon: ({ color }) => <TabBarIcon name="truck" color={color} /> }} />
-      <Tabs.Screen name="salesAdmin" options={{ title: 'Ventas', tabBarIcon: ({ color }) => <TabBarIcon name="shopping-cart" color={color} /> }} />
-      <Tabs.Screen name="statisticsAdmin" options={{ title: 'Estadísticas', tabBarIcon: ({ color }) => <TabBarIcon name="bar-chart" color={color} /> }} />
-      <Tabs.Screen name="auditlog" options={{ title: 'Auditoría', tabBarIcon: ({ color }) => <TabBarIcon name="file-text" color={color} /> }} />
-      <Tabs.Screen name="pricehistory" options={{ title: 'Historial Precios', tabBarIcon: ({ color }) => <TabBarIcon name="history" color={color} /> }} />
-      <Tabs.Screen name="usersAdmin" options={{ title: 'Usuarios', tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} /> }} />
-      <Tabs.Screen name="ventasDiaAdmin" options={{ title: 'Ventas del Día', tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} /> }} />
-    </Tabs>
+        drawerType: 'permanent',
+        drawerStyle: { width: 240 },
+      }}
+    >
+      <Drawer.Screen name="productos" component={ProductosScreen} options={{ title: 'Productos' }} />
+      <Drawer.Screen name="providers" component={ProvidersScreen} options={{ title: 'Proveedores' }} />
+      <Drawer.Screen name="salesAdmin" component={SalesAdminScreen} options={{ title: 'Ventas' }} />
+      <Drawer.Screen name="statisticsAdmin" component={StatisticsAdminScreen} options={{ title: 'Estadísticas' }} />
+      <Drawer.Screen name="auditlog" component={AuditlogScreen} options={{ title: 'Auditoría' }} />
+      <Drawer.Screen name="pricehistory" component={PricehistoryScreen} options={{ title: 'Historial Precios' }} />
+      <Drawer.Screen name="usersAdmin" component={UsersAdminScreen} options={{ title: 'Usuarios' }} />
+      <Drawer.Screen name="ventasDiaAdmin" component={VentasDiaAdminScreen} options={{ title: 'Ventas del Día' }} />
+    </Drawer.Navigator>
   );
 }
